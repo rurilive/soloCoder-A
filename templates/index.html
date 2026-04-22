@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的在线日记本</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📒 我的在线日记本</h1>
+            <button id="newDiaryBtn" class="btn btn-primary">+ 写新日记</button>
+        </header>
+
+        <div class="main-content">
+            <div class="diary-list" id="diaryList">
+                <h2>我的日记</h2>
+                <div id="diaryItems">
+                    {% if diaries %}
+                        {% for diary in diaries %}
+                        <div class="diary-card" data-id="{{ diary.id }}">
+                            <div class="diary-header">
+                                <h3>{{ diary.title }}</h3>
+                                <div class="diary-actions">
+                                    <button class="btn btn-edit" data-action="edit">✏️</button>
+                                    <button class="btn btn-delete" data-action="delete">🗑️</button>
+                                </div>
+                            </div>
+                            <div class="diary-meta">
+                                <span class="diary-date">{{ diary.created_at }}</span>
+                            </div>
+                            <div class="diary-content-preview">
+                                <p>{{ diary.content[:200] }}{% if diary.content|length > 200 %}...{% endif %}</p>
+                            </div>
+                            {% if diary.images %}
+                            <div class="diary-images">
+                                {% for img in diary.images %}
+                                <img src="{{ img }}" alt="日记图片" class="diary-image">
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <p>还没有日记，点击上方按钮开始写第一篇日记吧！</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建/编辑日记模态框 -->
+    <div id="diaryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">写新日记</h2>
+                <button id="closeModal" class="btn btn-close">&times;</button>
+            </div>
+            <form id="diaryForm">
+                <div class="form-group">
+                    <label for="diaryTitle">标题</label>
+                    <input type="text" id="diaryTitle" name="title" placeholder="输入日记标题..." required>
+                </div>
+                <div class="form-group">
+                    <label for="diaryContent">内容</label>
+                    <textarea id="diaryContent" name="content" placeholder="写下今天的心情..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="diaryImages">添加图片</label>
+                    <div class="image-upload-area">
+                        <input type="file" id="diaryImages" name="images" accept="image/*" multiple>
+                        <label for="diaryImages" class="upload-label">
+                            <span>点击或拖拽图片到此处上传</span>
+                        </label>
+                    </div>
+                    <div id="imagePreviewContainer" class="image-preview-container"></div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="cancelBtn" class="btn btn-secondary">取消</button>
+                    <button type="submit" class="btn btn-primary">保存日记</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 确认删除模态框 -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content modal-small">
+            <h3>确认删除？</h3>
+            <p>确定要删除这篇日记吗？此操作不可撤销。</p>
+            <div class="form-actions">
+                <button id="cancelDeleteBtn" class="btn btn-secondary">取消</button>
+                <button id="confirmDeleteBtn" class="btn btn-danger">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 消息提示 -->
+    <div id="toast" class="toast"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
