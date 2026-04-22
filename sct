@@ -24,9 +24,12 @@ add_branch() {
         git checkout "$branch_name"
         echo "已切换到分支：$branch_name"
     else
-        # 分支不存在，创建并切换
-        git checkout -b "$branch_name"
-        echo "已创建并切换到分支：$branch_name"
+        # 分支不存在，创建孤儿分支（没有历史记录，空分支）
+        git checkout --orphan "$branch_name"
+        # 删除所有文件和目录，使分支完全为空
+        git rm -rf . > /dev/null 2>&1
+        echo "已创建并切换到空分支：$branch_name"
+        echo "提示：该分支没有任何文件和历史记录，就像一个新的仓库一样"
     fi
 }
 
