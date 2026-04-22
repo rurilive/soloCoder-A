@@ -1,0 +1,89 @@
+#!/bin/bash
+
+# 检查是否在git仓库中
+check_git_repo() {
+    if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+        echo "错误：当前目录不是一个git仓库"
+        exit 1
+    fi
+}
+
+# 创建并切换到分支
+add_branch() {
+    local branch_name="$1"
+    
+    if [ -z "$branch_name" ]; then
+        echo "错误：请指定分支名称"
+        echo "用法：sct add <branchname>"
+        exit 1
+    fi
+    
+    # 检查分支是否已存在
+    if git show-ref --verify --quiet "refs/heads/$branch_name"; then
+        # 分支已存在，直接切换
+        git checkout "$branch_name"
+        echo "已切换到分支：$branch_name"
+    else
+        # 分支不存在，创建并切换
+        git checkout -b "$branch_name"
+        echo "已创建并切换到分支：$branch_name"
+    fi
+}
+
+# 提交并推送变更
+push_changes() {
+    local commit_message="$1"
+    
+    if [ -z "$commit_message" ]; then
+        echo "错误：请指定commit信息"
+        echo "用法：sct push <message>"
+        exit 1
+    fi
+    
+    # 检查是否有未提交的变更
+    if ! git status --porcelain | grep -q .; then
+        echo "警告：没有任何变更需要提交"
+        exit 0
+    fi
+    
+    # 添加所有变更
+    git add -A
+    
+    # 提交变更
+    git commit -m "$commit_message"
+    
+    # 获取当前分支名
+    local current_branch=$(git rev-parse --abbrev-ref HEAD)
+    
+    # 获取最新的commit id
+    local commit_id=$(git rev-parse HEAD)
+    
+    # 推送到远程仓库
+    git push -u origin "$current_branch"
+    
+    # 输出分支名和commit id
+    echo "----------------------------------------"
+    echo "分支名：$current_branch"
+    echo "Commit ID：$commit_id"
+    echo "----------------------------------------"
+}
+
+# 主逻辑
+case "${1:-}" in
+    add)
+        check_git_repo
+        add_branch "${2:-}"
+        ;;
+    push)
+        check_git_repo
+        push_changes "${2:-}"
+        ;;
+    *)
+        echo "用法：sct <command> [options]"
+        echo ""
+        echo "命令："
+        echo "  add <branchname>  创建并切换到指定分支"
+        echo "  push <message>    提交并推送当前分支的所有变更"
+        exit 1
+        ;;
+esac
