@@ -71,10 +71,12 @@
             
             <div class="post-actions">
                 <a href="/post/{{ post.id }}" class="btn btn-link">阅读更多</a>
+                {% if current_user and current_user.is_admin %}
                 <a href="/edit/{{ post.id }}" class="btn btn-link btn-sm">编辑</a>
                 <form action="/delete/{{ post.id }}" method="post" class="delete-form" onsubmit="return confirm('确定要删除这篇文章吗？');">
                     <button type="submit" class="btn btn-link btn-sm btn-danger">删除</button>
                 </form>
+                {% endif %}
             </div>
         </div>
     </article>

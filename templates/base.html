@@ -14,12 +14,22 @@
                 <a href="/" class="logo">瀑布流博客</a>
                 <ul class="nav-links">
                     <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">首页</a></li>
+                    {% if current_user and current_user.is_admin %}
                     <li><a href="/create" class="{% if request.url.path == '/create' %}active{% endif %}">写文章</a></li>
+                    {% endif %}
                 </ul>
                 <div class="search-box">
                     <input type="text" placeholder="搜索文章..." id="search-input">
                     <button type="button" id="search-btn">搜索</button>
                 </div>
+                <ul class="nav-links user-links">
+                    {% if current_user %}
+                    <li><span class="user-name">欢迎, {{ current_user.username }}</span></li>
+                    <li><a href="/logout">退出登录</a></li>
+                    {% else %}
+                    <li><a href="/login" class="{% if request.url.path == '/login' %}active{% endif %}">管理员登录</a></li>
+                    {% endif %}
+                </ul>
             </nav>
         </div>
     </header>
@@ -63,7 +73,7 @@
 
     <footer class="footer">
         <div class="container">
-            <p>&copy; 2024 瀑布流博客. 由 FastAPI + Jinja2 + SQLite 驱动</p>
+            <p>&copy; 2026 瀑布流博客. 由 FastAPI + Jinja2 + SQLite 驱动</p>
         </div>
     </footer>
 

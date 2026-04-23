@@ -61,7 +61,9 @@
     
     <footer class="post-footer">
         <div class="post-actions">
+            {% if current_user and current_user.is_admin %}
             <a href="/edit/{{ post.id }}" class="btn btn-primary">编辑文章</a>
+            {% endif %}
             <a href="/" class="btn btn-secondary">返回首页</a>
         </div>
     </footer>
