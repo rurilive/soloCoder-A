@@ -7,7 +7,9 @@
     "deploy": "wrangler deploy",
     "start": "wrangler dev",
     "migrate": "wrangler d1 migrations apply imgbed-db",
-    "generate-mock": "npx tsx scripts/generate-mock-data.ts"
+    "generate-mock": "npx tsx scripts/generate-mock-data.ts",
+    "test": "npx tsx tests/run-tests.ts",
+    "test:watch": "npx tsx watch tests/run-tests.ts"
   },
   "dependencies": {
     "@tsndr/cloudflare-worker-jwt": "^2.5.2",

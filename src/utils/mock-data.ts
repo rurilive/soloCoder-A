@@ -1,5 +1,5 @@
-import type { MockUser, MockMediaFile, MediaType } from '../src/types';
-import { generateUUID, generateSecretToken, generateFileId, hashPassword } from '../src/utils/security';
+import type { MockUser, MockMediaFile, MediaType } from '../types';
+import { generateUUID, generateSecretToken, generateFileId, hashPassword } from './security';
 
 export const MOCK_USERS: MockUser[] = [
   {
