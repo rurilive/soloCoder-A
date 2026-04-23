@@ -6,7 +6,7 @@
 <style>
     .file-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
         gap: 20px;
         margin-top: 20px;
     }
@@ -21,6 +21,14 @@
         transform: translateY(-5px);
         box-shadow: 0 8px 25px rgba(0,0,0,0.15);
     }
+    .file-card.expired {
+        opacity: 0.7;
+        border: 2px solid #f5c6cb;
+    }
+    .file-card.deleted {
+        opacity: 0.5;
+        border: 2px solid #ccc;
+    }
     .file-preview {
         width: 100%;
         height: 180px;
@@ -29,6 +37,7 @@
         align-items: center;
         justify-content: center;
         overflow: hidden;
+        position: relative;
     }
     .file-preview img, .file-preview video {
         max-width: 100%;
@@ -37,6 +46,27 @@
     }
     .file-preview .icon {
         font-size: 3rem;
+    }
+    .status-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .status-badge.expired {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .status-badge.deleted {
+        background: #e2e3e5;
+        color: #383d41;
+    }
+    .status-badge.active {
+        background: #d4edda;
+        color: #155724;
     }
     .file-info {
         padding: 15px;
@@ -57,10 +87,29 @@
     .file-meta span {
         margin-right: 15px;
     }
+    .expire-info {
+        font-size: 12px;
+        padding: 8px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+    }
+    .expire-info.warning {
+        background: #fff3cd;
+        color: #856404;
+    }
+    .expire-info.danger {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .expire-info.info {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
     .link-list {
-        max-height: 150px;
+        max-height: 120px;
         overflow-y: auto;
         padding-right: 5px;
+        margin-bottom: 10px;
     }
     .link-item {
         display: flex;
@@ -96,6 +145,119 @@
     }
     .link-item button:hover {
         background: #764ba2;
+    }
+    .action-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .action-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .action-btn.primary {
+        background: #667eea;
+        color: white;
+    }
+    .action-btn.primary:hover {
+        background: #764ba2;
+    }
+    .action-btn.warning {
+        background: #ffc107;
+        color: #333;
+    }
+    .action-btn.warning:hover {
+        background: #e0a800;
+    }
+    .action-btn.danger {
+        background: #dc3545;
+        color: white;
+    }
+    .action-btn.danger:hover {
+        background: #c82333;
+    }
+    .action-btn.success {
+        background: #28a745;
+        color: white;
+    }
+    .action-btn.success:hover {
+        background: #218838;
+    }
+    .action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    .modal.show {
+        display: flex;
+    }
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        max-width: 400px;
+        width: 90%;
+    }
+    .modal-content h3 {
+        margin-bottom: 20px;
+        color: #333;
+    }
+    .modal-content .form-group {
+        margin-bottom: 15px;
+    }
+    .modal-content label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+    .modal-content select,
+    .modal-content textarea {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+    .modal-content textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+    .modal-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 20px;
+    }
+    .modal-buttons button {
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    .modal-buttons .cancel-btn {
+        background: #f0f0f0;
+        border: none;
+        color: #333;
+    }
+    .modal-buttons .confirm-btn {
+        background: #667eea;
+        border: none;
+        color: white;
     }
     .empty-state {
         text-align: center;
@@ -151,19 +313,31 @@
             <div class="stat-label">图片</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">{{ files|selectattr('media_type', 'equalto', 'video')|list|length }}</div>
-            <div class="stat-label">视频</div>
+            <div class="stat-value">{{ files|selectattr('is_expired', 'equalto', true)|list|length }}</div>
+            <div class="stat-label">已过期</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ files|selectattr('is_deleted', 'equalto', true)|list|length }}</div>
+            <div class="stat-label">已删除</div>
         </div>
     </div>
     
     {% if files %}
     <div class="file-grid">
         {% for file in files %}
-        <div class="file-card">
+        <div class="file-card {% if file.is_expired %}expired{% endif %} {% if file.is_deleted %}deleted{% endif %}" data-file-id="{{ file.file_id }}">
             <div class="file-preview">
-                {% if file.media_type == 'image' and file.icon_url %}
+                {% if file.is_deleted %}
+                <span class="status-badge deleted">已删除</span>
+                {% elif file.is_expired %}
+                <span class="status-badge expired">已过期</span>
+                {% else %}
+                <span class="status-badge active">正常</span>
+                {% endif %}
+                
+                {% if file.media_type == 'image' and file.icon_url and not file.is_deleted and not file.is_expired %}
                 <img src="{{ file.icon_url }}" alt="{{ file.original_filename }}" loading="lazy">
-                {% elif file.media_type == 'image' and file.original_url %}
+                {% elif file.media_type == 'image' and file.original_url and not file.is_deleted and not file.is_expired %}
                 <img src="{{ file.original_url }}" alt="{{ file.original_filename }}" loading="lazy">
                 {% elif file.media_type == 'video' %}
                 <div class="icon">🎬</div>
@@ -177,34 +351,70 @@
                     <span>👁️ {{ file.view_count }}</span>
                     <span>📅 {{ file.created_at.strftime('%Y-%m-%d') }}</span>
                 </div>
+                
+                {% if file.is_deleted %}
+                <div class="expire-info danger">
+                    ⚠️ 文件已被删除（记录保留用于审查）
+                </div>
+                {% elif file.is_expired %}
+                <div class="expire-info danger">
+                    ⏰ 文件已过期，无法访问
+                </div>
+                {% elif file.expires_at %}
+                <div class="expire-info warning">
+                    ⏰ 过期时间: {{ file.expires_at.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+                {% else %}
+                <div class="expire-info info">
+                    ∞ 永不过期
+                </div>
+                {% endif %}
+                
+                {% if not file.is_deleted %}
                 <div class="link-list">
-                    {% if file.original_url %}
+                    {% if file.original_url and not file.is_expired %}
                     <div class="link-item">
                         <span class="quality">原图</span>
                         <span class="url">{{ file.original_url }}</span>
                         <button onclick="copyToClipboard('{{ file.original_url }}', this)">复制</button>
                     </div>
                     {% endif %}
-                    {% if file.standard_url %}
+                    {% if file.standard_url and not file.is_expired %}
                     <div class="link-item">
                         <span class="quality">标准</span>
                         <span class="url">{{ file.standard_url }}</span>
                         <button onclick="copyToClipboard('{{ file.standard_url }}', this)">复制</button>
                     </div>
                     {% endif %}
-                    {% if file.low_url %}
+                    {% if file.low_url and not file.is_expired %}
                     <div class="link-item">
                         <span class="quality">低质量</span>
                         <span class="url">{{ file.low_url }}</span>
                         <button onclick="copyToClipboard('{{ file.low_url }}', this)">复制</button>
                     </div>
                     {% endif %}
-                    {% if file.icon_url %}
+                    {% if file.icon_url and not file.is_expired %}
                     <div class="link-item">
                         <span class="quality">图标</span>
                         <span class="url">{{ file.icon_url }}</span>
                         <button onclick="copyToClipboard('{{ file.icon_url }}', this)">复制</button>
                     </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <div class="action-row">
+                    {% if not file.is_deleted %}
+                    <button class="action-btn primary" onclick="openExpireModal('{{ file.file_id }}')">
+                        修改过期
+                    </button>
+                    <button class="action-btn danger" onclick="openDeleteModal('{{ file.file_id }}')">
+                        删除
+                    </button>
+                    {% else %}
+                    <button class="action-btn success" onclick="restoreFile('{{ file.file_id }}')">
+                        恢复
+                    </button>
                     {% endif %}
                 </div>
             </div>
@@ -220,10 +430,50 @@
     </div>
     {% endif %}
 </div>
+
+<div class="modal" id="expireModal">
+    <div class="modal-content">
+        <h3>修改过期时间</h3>
+        <div class="form-group">
+            <label for="modalExpireDays">选择过期时间</label>
+            <select id="modalExpireDays">
+                <option value="0">永不过期</option>
+                <option value="1">1天后</option>
+                <option value="7">7天后</option>
+                <option value="30">30天后</option>
+                <option value="90">90天后</option>
+                <option value="365">1年后</option>
+            </select>
+        </div>
+        <div class="modal-buttons">
+            <button class="cancel-btn" onclick="closeExpireModal()">取消</button>
+            <button class="confirm-btn" onclick="updateExpire()">确认</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="deleteModal">
+    <div class="modal-content">
+        <h3>删除文件</h3>
+        <p style="color: #666; margin-bottom: 15px;">
+            此操作为假删除，文件记录会保留用于审查，但外部无法访问。
+        </p>
+        <div class="form-group">
+            <label for="deleteReason">删除原因（可选，用于审查）</label>
+            <textarea id="deleteReason" placeholder="请输入删除原因..."></textarea>
+        </div>
+        <div class="modal-buttons">
+            <button class="cancel-btn" onclick="closeDeleteModal()">取消</button>
+            <button class="confirm-btn" style="background: #dc3545;" onclick="softDelete()">确认删除</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+let currentFileId = null;
+
 async function copyToClipboard(text, btn) {
     try {
         await navigator.clipboard.writeText(text);
@@ -238,5 +488,113 @@ async function copyToClipboard(text, btn) {
         alert('复制失败，请手动复制: ' + text);
     }
 }
+
+function openExpireModal(fileId) {
+    currentFileId = fileId;
+    document.getElementById('expireModal').classList.add('show');
+}
+
+function closeExpireModal() {
+    currentFileId = null;
+    document.getElementById('expireModal').classList.remove('show');
+}
+
+async function updateExpire() {
+    if (!currentFileId) return;
+    
+    const expireDays = document.getElementById('modalExpireDays').value;
+    const formData = new FormData();
+    formData.append('expire_days', expireDays);
+    
+    try {
+        const response = await fetch(`/api/media/${currentFileId}/expire`, {
+            method: 'PUT',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            alert('过期时间已更新');
+            location.reload();
+        } else {
+            alert(data.detail || data.message || '操作失败');
+        }
+    } catch (err) {
+        alert('网络错误，请稍后重试');
+    }
+    
+    closeExpireModal();
+}
+
+function openDeleteModal(fileId) {
+    currentFileId = fileId;
+    document.getElementById('deleteReason').value = '';
+    document.getElementById('deleteModal').classList.add('show');
+}
+
+function closeDeleteModal() {
+    currentFileId = null;
+    document.getElementById('deleteModal').classList.remove('show');
+}
+
+async function softDelete() {
+    if (!currentFileId) return;
+    
+    const reason = document.getElementById('deleteReason').value;
+    const formData = new FormData();
+    if (reason) {
+        formData.append('reason', reason);
+    }
+    
+    try {
+        const response = await fetch(`/api/media/${currentFileId}/soft-delete`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            alert('文件已删除（记录保留用于审查）');
+            location.reload();
+        } else {
+            alert(data.detail || data.message || '操作失败');
+        }
+    } catch (err) {
+        alert('网络错误，请稍后重试');
+    }
+    
+    closeDeleteModal();
+}
+
+async function restoreFile(fileId) {
+    if (!confirm('确定要恢复此文件吗？')) return;
+    
+    try {
+        const response = await fetch(`/api/media/${fileId}/restore`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            alert('文件已恢复');
+            location.reload();
+        } else {
+            alert(data.detail || data.message || '操作失败');
+        }
+    } catch (err) {
+        alert('网络错误，请稍后重试');
+    }
+}
+
+document.getElementById('expireModal').addEventListener('click', function(e) {
+    if (e.target === this) closeExpireModal();
+});
+
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteModal();
+});
 </script>
 {% endblock %}

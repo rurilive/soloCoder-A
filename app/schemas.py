@@ -40,6 +40,12 @@ class MediaFileResponse(BaseModel):
     height: Optional[int]
     view_count: int
     created_at: datetime
+    updated_at: Optional[datetime]
+
+    expires_at: Optional[datetime]
+    is_expired: bool
+    is_deleted: bool
+    deleted_at: Optional[datetime]
 
     original_url: str
     standard_url: Optional[str]

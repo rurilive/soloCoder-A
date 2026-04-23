@@ -1,5 +1,6 @@
 import os
 import shutil
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
@@ -67,6 +68,7 @@ async def upload_page(
 async def upload_file(
     request: Request,
     file: UploadFile = File(...),
+    expire_days: int = Form(0),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -109,6 +111,10 @@ async def upload_file(
     width: Optional[int] = None
     height: Optional[int] = None
 
+    expires_at = None
+    if expire_days > 0:
+        expires_at = datetime.utcnow() + timedelta(days=expire_days)
+
     media_file = MediaFile(
         file_id=file_id,
         user_id=current_user.id,
@@ -120,6 +126,9 @@ async def upload_file(
         height=None,
         original_path="",
         original_size=file_size,
+        expires_at=expires_at,
+        is_expired=False,
+        is_deleted=False,
     )
 
     if media_type == MediaType.IMAGE:
@@ -174,6 +183,11 @@ async def upload_file(
         height=media_file.height,
         view_count=media_file.view_count,
         created_at=media_file.created_at,
+        updated_at=media_file.updated_at,
+        expires_at=media_file.expires_at,
+        is_expired=media_file.is_expired,
+        is_deleted=media_file.is_deleted,
+        deleted_at=media_file.deleted_at,
         original_url=get_file_url(request, media_file.file_id, "original"),
         standard_url=get_file_url(request, media_file.file_id, "standard") if media_file.standard_path else None,
         low_url=get_file_url(request, media_file.file_id, "low") if media_file.low_path else None,
@@ -204,6 +218,24 @@ async def serve_file(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="File not found",
+        )
+
+    if media_file.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    if not media_file.is_expired and media_file.expires_at:
+        if datetime.utcnow() > media_file.expires_at:
+            media_file.is_expired = True
+            await db.commit()
+            await db.refresh(media_file)
+
+    if media_file.is_expired:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="File has expired",
         )
 
     if not media_file.is_public:
@@ -259,6 +291,13 @@ async def dashboard(
     )
     files = result.scalars().all()
 
+    for f in files:
+        if not f.is_expired and f.expires_at:
+            if datetime.utcnow() > f.expires_at:
+                f.is_expired = True
+
+    await db.commit()
+
     file_responses = []
     for f in files:
         file_responses.append({
@@ -268,6 +307,9 @@ async def dashboard(
             "file_size": f.file_size,
             "view_count": f.view_count,
             "created_at": f.created_at,
+            "expires_at": f.expires_at,
+            "is_expired": f.is_expired,
+            "is_deleted": f.is_deleted,
             "original_url": get_file_url(request, f.file_id, "original"),
             "standard_url": get_file_url(request, f.file_id, "standard") if f.standard_path else None,
             "low_url": get_file_url(request, f.file_id, "low") if f.low_path else None,
@@ -282,3 +324,127 @@ async def dashboard(
             "user": current_user,
         },
     )
+
+
+@router.put("/api/media/{file_id}/expire")
+async def update_expire_time(
+    file_id: str,
+    expire_days: int = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    result = await db.execute(
+        select(MediaFile).where(
+            MediaFile.file_id == file_id,
+            MediaFile.user_id == current_user.id,
+        )
+    )
+    media_file = result.scalar_one_or_none()
+
+    if not media_file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    if media_file.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File has been deleted",
+        )
+
+    if expire_days > 0:
+        media_file.expires_at = datetime.utcnow() + timedelta(days=expire_days)
+        media_file.is_expired = False
+    else:
+        media_file.expires_at = None
+        media_file.is_expired = False
+
+    await db.commit()
+    await db.refresh(media_file)
+
+    return {
+        "success": True,
+        "message": "Expire time updated",
+        "expires_at": media_file.expires_at,
+        "is_expired": media_file.is_expired,
+    }
+
+
+@router.post("/api/media/{file_id}/soft-delete")
+async def soft_delete_file(
+    file_id: str,
+    reason: str = Form(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    result = await db.execute(
+        select(MediaFile).where(
+            MediaFile.file_id == file_id,
+            MediaFile.user_id == current_user.id,
+        )
+    )
+    media_file = result.scalar_one_or_none()
+
+    if not media_file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    if media_file.is_deleted:
+        return {
+            "success": True,
+            "message": "File is already deleted",
+        }
+
+    media_file.is_deleted = True
+    media_file.deleted_at = datetime.utcnow()
+    if reason:
+        media_file.deleted_reason = reason
+
+    await db.commit()
+    await db.refresh(media_file)
+
+    return {
+        "success": True,
+        "message": "File has been soft deleted",
+        "deleted_at": media_file.deleted_at,
+    }
+
+
+@router.post("/api/media/{file_id}/restore")
+async def restore_file(
+    file_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    result = await db.execute(
+        select(MediaFile).where(
+            MediaFile.file_id == file_id,
+            MediaFile.user_id == current_user.id,
+        )
+    )
+    media_file = result.scalar_one_or_none()
+
+    if not media_file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    if not media_file.is_deleted:
+        return {
+            "success": True,
+            "message": "File is not deleted",
+        }
+
+    media_file.is_deleted = False
+
+    await db.commit()
+    await db.refresh(media_file)
+
+    return {
+        "success": True,
+        "message": "File has been restored",
+    }
