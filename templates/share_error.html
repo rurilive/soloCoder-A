@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分享链接不存在 - 我的在线日记本</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .error-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 80px 20px;
+            text-align: center;
+        }
+        
+        .error-icon {
+            font-size: 6rem;
+            margin-bottom: 30px;
+        }
+        
+        .error-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+        }
+        
+        .error-card h1 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+        }
+        
+        .error-card p {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .back-btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-card">
+            <div class="error-icon">🔍</div>
+            <h1>分享链接不存在</h1>
+            <p>{{ error_message }}<br>可能是链接已过期、已被删除，或者链接输入错误。</p>
+            <a href="/" class="back-btn">← 返回日记本首页</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -76,7 +76,7 @@ class DiaryApp {
             diaryForm.addEventListener('submit', (e) => this.handleSubmit(e));
         }
 
-        // 日记列表操作（编辑/删除）
+        // 日记列表操作（编辑/删除/分享）
         const diaryItems = document.getElementById('diaryItems');
         if (diaryItems) {
             diaryItems.addEventListener('click', (e) => {
@@ -93,6 +93,8 @@ class DiaryApp {
                     this.editDiary(diaryId, diaryCard);
                 } else if (action === 'delete') {
                     this.confirmDelete(diaryId);
+                } else if (action === 'share') {
+                    this.openShareModal(diaryId);
                 }
             });
         }
@@ -115,6 +117,41 @@ class DiaryApp {
         const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
         if (confirmDeleteBtn) {
             confirmDeleteBtn.addEventListener('click', () => this.deleteDiary());
+        }
+
+        // 分享模态框
+        const closeShareModal = document.getElementById('closeShareModal');
+        if (closeShareModal) {
+            closeShareModal.addEventListener('click', () => this.closeShareModal());
+        }
+
+        const cancelShareBtn = document.getElementById('cancelShareBtn');
+        if (cancelShareBtn) {
+            cancelShareBtn.addEventListener('click', () => this.closeShareModal());
+        }
+
+        const shareModal = document.getElementById('shareModal');
+        if (shareModal) {
+            shareModal.addEventListener('click', (e) => {
+                if (e.target === shareModal) {
+                    this.closeShareModal();
+                }
+            });
+        }
+
+        const shareForm = document.getElementById('shareForm');
+        if (shareForm) {
+            shareForm.addEventListener('submit', (e) => this.handleShareSubmit(e));
+        }
+
+        const copyShareLink = document.getElementById('copyShareLink');
+        if (copyShareLink) {
+            copyShareLink.addEventListener('click', () => this.copyShareLinkToClipboard());
+        }
+
+        const closeShareSuccessBtn = document.getElementById('closeShareSuccessBtn');
+        if (closeShareSuccessBtn) {
+            closeShareSuccessBtn.addEventListener('click', () => this.closeShareModal());
         }
     }
 
@@ -451,6 +488,7 @@ class DiaryApp {
             <div class="diary-header">
                 <h3>${diary.title}</h3>
                 <div class="diary-actions">
+                    <button class="btn btn-share" data-action="share">🔗</button>
                     <button class="btn btn-edit" data-action="edit">✏️</button>
                     <button class="btn btn-delete" data-action="delete">🗑️</button>
                 </div>
@@ -465,6 +503,126 @@ class DiaryApp {
         `;
 
         return card;
+    }
+
+    openShareModal(diaryId) {
+        this.currentDiaryId = diaryId;
+        
+        const shareModal = document.getElementById('shareModal');
+        const shareStep1 = document.getElementById('shareStep1');
+        const shareStep2 = document.getElementById('shareStep2');
+        const shareForm = document.getElementById('shareForm');
+        const shareErrorMessage = document.getElementById('shareErrorMessage');
+        
+        if (shareStep1) shareStep1.style.display = 'block';
+        if (shareStep2) shareStep2.style.display = 'none';
+        if (shareForm) shareForm.reset();
+        if (shareErrorMessage) shareErrorMessage.classList.remove('show');
+        
+        if (shareModal) {
+            shareModal.classList.add('active');
+        }
+    }
+
+    closeShareModal() {
+        const shareModal = document.getElementById('shareModal');
+        const shareForm = document.getElementById('shareForm');
+        const shareErrorMessage = document.getElementById('shareErrorMessage');
+        
+        this.currentDiaryId = null;
+        
+        if (shareModal) {
+            shareModal.classList.remove('active');
+        }
+        if (shareForm) shareForm.reset();
+        if (shareErrorMessage) shareErrorMessage.classList.remove('show');
+    }
+
+    async handleShareSubmit(e) {
+        e.preventDefault();
+        
+        const passwordInput = document.getElementById('sharePassword');
+        const passwordConfirmInput = document.getElementById('sharePasswordConfirm');
+        const shareErrorMessage = document.getElementById('shareErrorMessage');
+        
+        const password = passwordInput?.value.trim();
+        const passwordConfirm = passwordConfirmInput?.value.trim();
+        
+        if (!password) {
+            this.showShareError(shareErrorMessage, '请输入密码');
+            return;
+        }
+        
+        if (password.length < 4) {
+            this.showShareError(shareErrorMessage, '密码长度至少为4位');
+            return;
+        }
+        
+        if (password !== passwordConfirm) {
+            this.showShareError(shareErrorMessage, '两次输入的密码不一致');
+            return;
+        }
+        
+        if (shareErrorMessage) shareErrorMessage.classList.remove('show');
+        
+        try {
+            const formData = new FormData();
+            formData.append('password', password);
+            
+            const response = await fetch(`/api/diaries/${this.currentDiaryId}/share`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.showShareSuccess(data.share_url);
+            } else {
+                this.showShareError(shareErrorMessage, data.message || '创建分享链接失败');
+            }
+        } catch (error) {
+            console.error('创建分享链接失败:', error);
+            this.showShareError(shareErrorMessage, '创建分享链接失败，请稍后重试');
+        }
+    }
+
+    showShareError(element, message) {
+        if (element) {
+            element.textContent = message;
+            element.classList.add('show');
+        }
+    }
+
+    showShareSuccess(shareUrl) {
+        const shareStep1 = document.getElementById('shareStep1');
+        const shareStep2 = document.getElementById('shareStep2');
+        const shareLinkInput = document.getElementById('shareLink');
+        
+        if (shareStep1) shareStep1.style.display = 'none';
+        if (shareStep2) shareStep2.style.display = 'block';
+        
+        if (shareLinkInput) {
+            const fullUrl = window.location.origin + shareUrl;
+            shareLinkInput.value = fullUrl;
+        }
+        
+        this.showToast('分享链接创建成功！', 'success');
+    }
+
+    async copyShareLinkToClipboard() {
+        const shareLinkInput = document.getElementById('shareLink');
+        if (!shareLinkInput) return;
+        
+        try {
+            await navigator.clipboard.writeText(shareLinkInput.value);
+            this.showToast('链接已复制到剪贴板！', 'success');
+        } catch (error) {
+            console.error('复制链接失败:', error);
+            shareLinkInput.select();
+            document.execCommand('copy');
+            this.showToast('链接已复制到剪贴板！', 'success');
+        }
     }
 
     checkEmptyState() {

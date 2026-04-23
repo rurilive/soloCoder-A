@@ -4,8 +4,9 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 import uuid
+import hashlib
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel
 
 
@@ -36,7 +37,26 @@ class DiaryEntry(BaseModel):
     images: List[str] = []
 
 
+class ShareLink(BaseModel):
+    id: str
+    diary_id: str
+    password_hash: str
+    share_token: str
+    created_at: str
+    expires_at: Optional[str] = None
+    access_count: int = 0
+
+
 diaries: List[DiaryEntry] = []
+share_links: Dict[str, ShareLink] = {}
+
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+
+def generate_share_token() -> str:
+    return str(uuid.uuid4())[:8] + str(uuid.uuid4())[:8]
 
 
 def render_template(template_name: str, context: dict) -> str:
@@ -166,3 +186,85 @@ async def upload_image(image: UploadFile = File(...)):
         }
     
     return JSONResponse(status_code=400, content={"message": "无效的图片"})
+
+
+@app.post("/api/diaries/{diary_id}/share")
+async def share_diary(
+    diary_id: str,
+    password: str = Form(...)
+):
+    for diary in diaries:
+        if diary.id == diary_id:
+            share_token = generate_share_token()
+            share_id = str(uuid.uuid4())
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            share_link = ShareLink(
+                id=share_id,
+                diary_id=diary_id,
+                password_hash=hash_password(password),
+                share_token=share_token,
+                created_at=now,
+                access_count=0
+            )
+            
+            share_links[share_token] = share_link
+            
+            return {
+                "message": "分享链接创建成功",
+                "share_token": share_token,
+                "share_url": f"/share/{share_token}"
+            }
+    
+    return JSONResponse(status_code=404, content={"message": "日记不存在"})
+
+
+@app.post("/api/share/{share_token}/verify")
+async def verify_share_password(
+    share_token: str,
+    password: str = Form(...)
+):
+    if share_token not in share_links:
+        return JSONResponse(status_code=404, content={"message": "分享链接不存在或已过期"})
+    
+    share_link = share_links[share_token]
+    password_hash = hash_password(password)
+    
+    if password_hash != share_link.password_hash:
+        return JSONResponse(status_code=401, content={"message": "密码错误"})
+    
+    for diary in diaries:
+        if diary.id == share_link.diary_id:
+            share_link.access_count += 1
+            return {
+                "message": "验证成功",
+                "diary": diary.model_dump()
+            }
+    
+    return JSONResponse(status_code=404, content={"message": "日记已被删除"})
+
+
+@app.get("/share/{share_token}", response_class=HTMLResponse)
+async def share_page(request: Request, share_token: str):
+    if share_token not in share_links:
+        html_content = render_template(
+            "share_error.html",
+            {
+                "request": request,
+                "error_message": "分享链接不存在或已过期"
+            }
+        )
+        return HTMLResponse(content=html_content, status_code=404)
+    
+    share_link = share_links[share_token]
+    
+    html_content = render_template(
+        "share.html",
+        {
+            "request": request,
+            "share_token": share_token,
+            "created_at": share_link.created_at,
+            "access_count": share_link.access_count
+        }
+    )
+    return HTMLResponse(content=html_content)

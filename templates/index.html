@@ -23,6 +23,7 @@
                             <div class="diary-header">
                                 <h3>{{ diary.title }}</h3>
                                 <div class="diary-actions">
+                                    <button class="btn btn-share" data-action="share">🔗</button>
                                     <button class="btn btn-edit" data-action="edit">✏️</button>
                                     <button class="btn btn-delete" data-action="delete">🗑️</button>
                                 </div>
@@ -83,6 +84,49 @@
                     <button type="submit" class="btn btn-primary">保存日记</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 分享日记模态框 -->
+    <div id="shareModal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>分享日记</h2>
+                <button id="closeShareModal" class="btn btn-close">&times;</button>
+            </div>
+            <div id="shareStep1">
+                <p>设置密码以保护这篇分享的日记，其他人需要输入密码才能查看。</p>
+                <form id="shareForm">
+                    <div class="form-group">
+                        <label for="sharePassword">设置密码</label>
+                        <input type="password" id="sharePassword" name="password" placeholder="请输入密码..." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sharePasswordConfirm">确认密码</label>
+                        <input type="password" id="sharePasswordConfirm" name="passwordConfirm" placeholder="请再次输入密码..." required>
+                    </div>
+                    <div id="shareErrorMessage" class="error-message"></div>
+                    <div class="form-actions">
+                        <button type="button" id="cancelShareBtn" class="btn btn-secondary">取消</button>
+                        <button type="submit" class="btn btn-primary">创建分享链接</button>
+                    </div>
+                </form>
+            </div>
+            <div id="shareStep2" style="display: none;">
+                <div class="share-success">
+                    <div class="success-icon">✅</div>
+                    <h3>分享链接已创建！</h3>
+                    <p>请复制以下链接分享给其他人：</p>
+                    <div class="share-link-container">
+                        <input type="text" id="shareLink" readonly>
+                        <button id="copyShareLink" class="btn btn-primary">复制链接</button>
+                    </div>
+                    <p class="share-note">其他人需要输入您设置的密码才能查看这篇日记。</p>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="closeShareSuccessBtn" class="btn btn-secondary">关闭</button>
+                </div>
+            </div>
         </div>
     </div>
 
