@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - 我的在线日记本</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .auth-container {
+            max-width: 420px;
+            margin: 0 auto;
+            padding: 80px 20px;
+        }
+        
+        .auth-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .auth-header h1 {
+            color: white;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        
+        .auth-header p {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .auth-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+        }
+        
+        .auth-card h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        
+        .auth-form .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .auth-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .auth-form input[type="text"],
+        .auth-form input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .auth-form input[type="text"]:focus,
+        .auth-form input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .auth-form .btn {
+            width: 100%;
+            padding: 14px;
+            font-size: 1rem;
+        }
+        
+        .auth-divider {
+            text-align: center;
+            margin: 25px 0;
+            color: #999;
+            font-size: 0.9rem;
+        }
+        
+        .auth-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+        
+        .auth-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .auth-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .success-message.show {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .password-hint {
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1>📒 我的在线日记本</h1>
+            <p>记录生活中的美好瞬间</p>
+        </div>
+        
+        <div class="auth-card">
+            <h2>创建账户</h2>
+            
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+            
+            <form id="registerForm" class="auth-form">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input type="text" id="username" name="username" placeholder="请输入用户名（至少3个字符）" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" name="password" placeholder="请输入密码（至少4个字符）" required>
+                    <p class="password-hint">密码至少需要4个字符</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="passwordConfirm">确认密码</label>
+                    <input type="password" id="passwordConfirm" name="passwordConfirm" placeholder="请再次输入密码" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">注册</button>
+            </form>
+            
+            <div class="auth-divider">已有账户？</div>
+            
+            <div class="auth-link">
+                <a href="/login">立即登录 →</a>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast" class="toast"></div>
+    
+    <script>
+        class RegisterApp {
+            constructor() {
+                this.init();
+            }
+            
+            init() {
+                this.bindEvents();
+            }
+            
+            bindEvents() {
+                const registerForm = document.getElementById('registerForm');
+                if (registerForm) {
+                    registerForm.addEventListener('submit', (e) => this.handleRegister(e));
+                }
+            }
+            
+            async handleRegister(e) {
+                e.preventDefault();
+                
+                const usernameInput = document.getElementById('username');
+                const passwordInput = document.getElementById('password');
+                const passwordConfirmInput = document.getElementById('passwordConfirm');
+                const errorMessage = document.getElementById('errorMessage');
+                const successMessage = document.getElementById('successMessage');
+                
+                const username = usernameInput?.value.trim();
+                const password = passwordInput?.value.trim();
+                const passwordConfirm = passwordConfirmInput?.value.trim();
+                
+                if (errorMessage) errorMessage.classList.remove('show');
+                if (successMessage) successMessage.classList.remove('show');
+                
+                if (!username || !password || !passwordConfirm) {
+                    this.showError(errorMessage, '请填写所有字段');
+                    return;
+                }
+                
+                if (username.length < 3) {
+                    this.showError(errorMessage, '用户名至少需要3个字符');
+                    return;
+                }
+                
+                if (password.length < 4) {
+                    this.showError(errorMessage, '密码至少需要4个字符');
+                    return;
+                }
+                
+                if (password !== passwordConfirm) {
+                    this.showError(errorMessage, '两次输入的密码不一致');
+                    return;
+                }
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('username', username);
+                    formData.append('password', password);
+                    
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        this.showSuccess(successMessage, '注册成功！即将跳转到登录页面...');
+                        
+                        setTimeout(() => {
+                            window.location.href = '/login';
+                        }, 1500);
+                    } else {
+                        this.showError(errorMessage, data.message || '注册失败，请稍后重试');
+                    }
+                } catch (error) {
+                    console.error('注册失败:', error);
+                    this.showError(errorMessage, '注册失败，请稍后重试');
+                }
+            }
+            
+            showError(element, message) {
+                if (element) {
+                    element.textContent = message;
+                    element.classList.add('show');
+                }
+            }
+            
+            showSuccess(element, message) {
+                if (element) {
+                    element.textContent = message;
+                    element.classList.add('show');
+                }
+            }
+            
+            showToast(message, type = 'info') {
+                const toast = document.getElementById('toast');
+                if (!toast) return;
+                
+                toast.textContent = message;
+                toast.className = `toast ${type} show`;
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            new RegisterApp();
+        });
+    </script>
+</body>
+</html>

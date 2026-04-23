@@ -10,7 +10,11 @@
     <div class="container">
         <header class="header">
             <h1>📒 我的在线日记本</h1>
-            <button id="newDiaryBtn" class="btn btn-primary">+ 写新日记</button>
+            <div class="header-actions">
+                <span class="user-info">👤 {{ user.username }}</span>
+                <button id="newDiaryBtn" class="btn btn-primary">+ 写新日记</button>
+                <button id="logoutBtn" class="btn btn-secondary">登出</button>
+            </div>
         </header>
 
         <div class="main-content">

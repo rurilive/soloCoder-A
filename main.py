@@ -1,13 +1,25 @@
-from fastapi import FastAPI, Request, UploadFile, File, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 import uuid
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict
 from pydantic import BaseModel
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+
+SECRET_KEY = "your-secret-key-change-in-production-please-use-random-key"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
+
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login", auto_error=False)
 
 
 app = FastAPI()
@@ -28,8 +40,16 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
 
 
+class User(BaseModel):
+    id: str
+    username: str
+    hashed_password: str
+    created_at: str
+
+
 class DiaryEntry(BaseModel):
     id: str
+    user_id: str
     title: str
     content: str
     created_at: str
@@ -40,6 +60,7 @@ class DiaryEntry(BaseModel):
 class ShareLink(BaseModel):
     id: str
     diary_id: str
+    user_id: str
     password_hash: str
     share_token: str
     created_at: str
@@ -47,11 +68,67 @@ class ShareLink(BaseModel):
     access_count: int = 0
 
 
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+
+
+users: Dict[str, User] = {}
+usernames: Dict[str, str] = {}
 diaries: List[DiaryEntry] = []
 share_links: Dict[str, ShareLink] = {}
 
 
-def hash_password(password: str) -> str:
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[User]:
+    if token is None:
+        return None
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="无法验证凭据",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        username: str = payload.get("username")
+        if user_id is None:
+            return None
+        token_data = TokenData(user_id=user_id, username=username)
+    except JWTError:
+        return None
+    
+    user = users.get(token_data.user_id)
+    if user is None:
+        return None
+    return user
+
+
+def hash_password_sha256(password: str) -> str:
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 
@@ -64,26 +141,200 @@ def render_template(template_name: str, context: dict) -> str:
     return template.render(context)
 
 
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    diaries_data = [d.model_dump() for d in diaries]
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    current_user = await get_current_user_from_request(request)
+    if current_user:
+        return RedirectResponse(url="/", status_code=303)
+    
     html_content = render_template(
-        "index.html",
-        {"request": request, "diaries": diaries_data}
+        "login.html",
+        {"request": request}
     )
     return HTMLResponse(content=html_content)
 
 
+@app.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    current_user = await get_current_user_from_request(request)
+    if current_user:
+        return RedirectResponse(url="/", status_code=303)
+    
+    html_content = render_template(
+        "register.html",
+        {"request": request}
+    )
+    return HTMLResponse(content=html_content)
+
+
+async def get_current_user_from_request(request: Request) -> Optional[User]:
+    authorization = request.headers.get("Authorization")
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        return await get_current_user(token)
+    
+    token = request.cookies.get("access_token")
+    if token:
+        if token.startswith("Bearer "):
+            token = token.replace("Bearer ", "")
+        return await get_current_user(token)
+    
+    return None
+
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    current_user = await get_current_user_from_request(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    user_diaries = [d for d in diaries if d.user_id == current_user.id]
+    diaries_data = [d.model_dump() for d in user_diaries]
+    
+    html_content = render_template(
+        "index.html",
+        {"request": request, "diaries": diaries_data, "user": current_user}
+    )
+    return HTMLResponse(content=html_content)
+
+
+@app.post("/api/register")
+async def register(
+    username: str = Form(...),
+    password: str = Form(...)
+):
+    if username in usernames:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "用户名已存在"}
+        )
+    
+    if len(username) < 3:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "用户名至少需要3个字符"}
+        )
+    
+    if len(password) < 4:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "密码至少需要4个字符"}
+        )
+    
+    user_id = str(uuid.uuid4())
+    hashed_password = get_password_hash(password)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    user = User(
+        id=user_id,
+        username=username,
+        hashed_password=hashed_password,
+        created_at=now
+    )
+    
+    users[user_id] = user
+    usernames[username] = user_id
+    
+    return {
+        "message": "注册成功",
+        "user_id": user_id,
+        "username": username
+    }
+
+
+@app.post("/api/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user_id = usernames.get(form_data.username)
+    if not user_id or user_id not in users:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="用户名或密码错误",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    user = users[user_id]
+    
+    if not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="用户名或密码错误",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.id, "username": user.username},
+        expires_delta=access_token_expires
+    )
+    
+    response = JSONResponse(
+        content={
+            "access_token": access_token,
+            "token_type": "bearer",
+            "username": user.username
+        }
+    )
+    
+    response.set_cookie(
+        key="access_token",
+        value=f"Bearer {access_token}",
+        httponly=True,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/"
+    )
+    
+    return response
+
+
+@app.post("/api/logout")
+async def logout():
+    response = JSONResponse(content={"message": "已登出"})
+    response.delete_cookie(key="access_token", path="/")
+    return response
+
+
+@app.get("/api/me")
+async def get_me(current_user: Optional[User] = Depends(get_current_user)):
+    if not current_user:
+        return JSONResponse(
+            status_code=401,
+            content={"message": "未登录"}
+        )
+    
+    return {
+        "user_id": current_user.id,
+        "username": current_user.username,
+        "created_at": current_user.created_at
+    }
+
+
 @app.get("/api/diaries")
-async def get_diaries():
-    return {"diaries": [d.model_dump() for d in diaries]}
+async def get_diaries(current_user: Optional[User] = Depends(get_current_user)):
+    if not current_user:
+        return JSONResponse(
+            status_code=401,
+            content={"message": "未登录"}
+        )
+    
+    user_diaries = [d for d in diaries if d.user_id == current_user.id]
+    return {"diaries": [d.model_dump() for d in user_diaries]}
 
 
 @app.get("/api/diaries/{diary_id}")
-async def get_diary(diary_id: str):
+async def get_diary(
+    diary_id: str,
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    if not current_user:
+        return JSONResponse(
+            status_code=401,
+            content={"message": "未登录"}
+        )
+    
     for diary in diaries:
-        if diary.id == diary_id:
+        if diary.id == diary_id and diary.user_id == current_user.id:
             return diary.model_dump()
+    
     return JSONResponse(status_code=404, content={"message": "日记不存在"})
 
 
@@ -91,8 +342,15 @@ async def get_diary(diary_id: str):
 async def create_diary(
     title: str = Form(...),
     content: str = Form(...),
-    images: Optional[List[UploadFile]] = File(None)
+    images: Optional[List[UploadFile]] = File(None),
+    current_user: Optional[User] = Depends(get_current_user)
 ):
+    if not current_user:
+        return JSONResponse(
+            status_code=401,
+            content={"message": "未登录"}
+        )
+    
     diary_id = str(uuid.uuid4())
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
@@ -112,6 +370,7 @@ async def create_diary(
     
     diary = DiaryEntry(
         id=diary_id,
+        user_id=current_user.id,
         title=title,
         content=content,
         created_at=now,
@@ -128,10 +387,17 @@ async def update_diary(
     diary_id: str,
     title: str = Form(...),
     content: str = Form(...),
-    images: Optional[List[UploadFile]] = File(None)
+    images: Optional[List[UploadFile]] = File(None),
+    current_user: Optional[User] = Depends(get_current_user)
 ):
+    if not current_user:
+        return JSONResponse(
+            status_code=401,
+            content={"message": "未登录"}
+        )
+    
     for diary in diaries:
-        if diary.id == diary_id:
+        if diary.id == diary_id and diary.user_id == current_user.id:
             diary.title = title
             diary.content = content
             diary.updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -155,13 +421,26 @@ async def update_diary(
 
 
 @app.delete("/api/diaries/{diary_id}")
-async def delete_diary(diary_id: str):
+async def delete_diary(
+    diary_id: str,
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    if not current_user:
+        return JSONResponse(
+            status_code=401,
+            content={"message": "未登录"}
+        )
+    
     for i, diary in enumerate(diaries):
-        if diary.id == diary_id:
+        if diary.id == diary_id and diary.user_id == current_user.id:
             for image_path in diary.images:
                 image_file = BASE_DIR / image_path.lstrip("/")
                 if image_file.exists():
                     image_file.unlink()
+            
+            tokens_to_remove = [k for k, v in share_links.items() if v.diary_id == diary_id]
+            for token in tokens_to_remove:
+                del share_links[token]
             
             del diaries[i]
             return {"message": "日记删除成功"}
@@ -170,7 +449,16 @@ async def delete_diary(diary_id: str):
 
 
 @app.post("/api/upload-image")
-async def upload_image(image: UploadFile = File(...)):
+async def upload_image(
+    image: UploadFile = File(...),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    if not current_user:
+        return JSONResponse(
+            status_code=401,
+            content={"message": "未登录"}
+        )
+    
     if image.filename:
         file_ext = Path(image.filename).suffix
         unique_filename = f"{uuid.uuid4()}{file_ext}"
@@ -191,10 +479,17 @@ async def upload_image(image: UploadFile = File(...)):
 @app.post("/api/diaries/{diary_id}/share")
 async def share_diary(
     diary_id: str,
-    password: str = Form(...)
+    password: str = Form(...),
+    current_user: Optional[User] = Depends(get_current_user)
 ):
+    if not current_user:
+        return JSONResponse(
+            status_code=401,
+            content={"message": "未登录"}
+        )
+    
     for diary in diaries:
-        if diary.id == diary_id:
+        if diary.id == diary_id and diary.user_id == current_user.id:
             share_token = generate_share_token()
             share_id = str(uuid.uuid4())
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -202,7 +497,8 @@ async def share_diary(
             share_link = ShareLink(
                 id=share_id,
                 diary_id=diary_id,
-                password_hash=hash_password(password),
+                user_id=current_user.id,
+                password_hash=hash_password_sha256(password),
                 share_token=share_token,
                 created_at=now,
                 access_count=0
@@ -228,7 +524,7 @@ async def verify_share_password(
         return JSONResponse(status_code=404, content={"message": "分享链接不存在或已过期"})
     
     share_link = share_links[share_token]
-    password_hash = hash_password(password)
+    password_hash = hash_password_sha256(password)
     
     if password_hash != share_link.password_hash:
         return JSONResponse(status_code=401, content={"message": "密码错误"})

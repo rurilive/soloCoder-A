@@ -11,6 +11,12 @@ class DiaryApp {
     }
 
     bindEvents() {
+        // 登出按钮
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => this.handleLogout());
+        }
+
         // 新建日记按钮
         const newDiaryBtn = document.getElementById('newDiaryBtn');
         if (newDiaryBtn) {
@@ -622,6 +628,27 @@ class DiaryApp {
             shareLinkInput.select();
             document.execCommand('copy');
             this.showToast('链接已复制到剪贴板！', 'success');
+        }
+    }
+
+    async handleLogout() {
+        try {
+            const response = await fetch('/api/logout', {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                this.showToast('已登出', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 500);
+            } else {
+                window.location.href = '/login';
+            }
+        } catch (error) {
+            console.error('登出失败:', error);
+            window.location.href = '/login';
         }
     }
 
