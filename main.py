@@ -1,5 +1,6 @@
 import re
 import jinja2
+from markupsafe import Markup
 from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
@@ -20,6 +21,21 @@ env = jinja2.Environment(
     cache_size=0,
     auto_reload=True,
 )
+
+
+def linebreaks_filter(text):
+    if not text:
+        return Markup('')
+    text = str(text)
+    paragraphs = text.split('\n\n')
+    result = []
+    for para in paragraphs:
+        para = para.replace('\n', '<br>\n')
+        result.append(f'<p>{para}</p>')
+    return Markup('\n\n'.join(result))
+
+
+env.filters['linebreaks'] = linebreaks_filter
 
 
 def url_for(request: Request, name: str, **path_params) -> str:
