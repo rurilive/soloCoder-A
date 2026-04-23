@@ -1,0 +1,27 @@
+{
+  "name": "imgbed-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "start": "wrangler dev",
+    "migrate": "wrangler d1 migrations apply imgbed-db",
+    "generate-mock": "npx tsx scripts/generate-mock-data.ts"
+  },
+  "dependencies": {
+    "@tsndr/cloudflare-worker-jwt": "^2.5.2",
+    "hono": "^4.2.7",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240405.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.12.7",
+    "@types/uuid": "^9.0.8",
+    "typescript": "^5.4.5",
+    "wrangler": "^3.51.2",
+    "tsx": "^4.7.2"
+  }
+}
