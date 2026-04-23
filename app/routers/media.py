@@ -69,6 +69,8 @@ async def upload_file(
     request: Request,
     file: UploadFile = File(...),
     expire_days: int = Form(0),
+    require_token: bool = Form(False),
+    allowed_referers: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -129,6 +131,8 @@ async def upload_file(
         expires_at=expires_at,
         is_expired=False,
         is_deleted=False,
+        require_token=require_token,
+        allowed_referers=allowed_referers if allowed_referers and allowed_referers.strip() else None,
     )
 
     if media_type == MediaType.IMAGE:
@@ -197,10 +201,28 @@ async def upload_file(
     return UploadResponse(success=True, message="File uploaded successfully", file=response)
 
 
+def is_referer_allowed(referer: Optional[str], allowed_referers: Optional[str]) -> bool:
+    if not allowed_referers or allowed_referers.strip() == "":
+        return False
+    
+    if not referer:
+        return False
+    
+    allowed_list = [r.strip() for r in allowed_referers.split(",") if r.strip()]
+    
+    for allowed in allowed_list:
+        if allowed in referer:
+            return True
+    
+    return False
+
+
 @router.get("/file/{file_id}/{quality}")
 async def serve_file(
+    request: Request,
     file_id: str,
     quality: str,
+    st: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     if quality not in ["original", "standard", "low", "icon"]:
@@ -243,6 +265,28 @@ async def serve_file(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="File is not public",
         )
+
+    if media_file.require_token:
+        referer = request.headers.get("referer")
+        token_valid = False
+        referer_valid = False
+
+        if st:
+            user_result = await db.execute(
+                select(User).where(User.id == media_file.user_id)
+            )
+            owner = user_result.scalar_one_or_none()
+            if owner and st == owner.secret_token:
+                token_valid = True
+
+        if not token_valid and media_file.allowed_referers:
+            referer_valid = is_referer_allowed(referer, media_file.allowed_referers)
+
+        if not token_valid and not referer_valid:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. Valid token or referer required.",
+            )
 
     path_attr = f"{quality}_path"
     file_path = getattr(media_file, path_attr)
@@ -298,8 +342,27 @@ async def dashboard(
 
     await db.commit()
 
+    user_token = current_user.secret_token
+
     file_responses = []
     for f in files:
+        original_url = get_file_url(request, f.file_id, "original")
+        standard_url = get_file_url(request, f.file_id, "standard") if f.standard_path else None
+        low_url = get_file_url(request, f.file_id, "low") if f.low_path else None
+        icon_url = get_file_url(request, f.file_id, "icon") if f.icon_path else None
+
+        if f.require_token and user_token:
+            separator = "&" if "?" in original_url else "?"
+            original_url_with_token = f"{original_url}{separator}st={user_token}"
+            standard_url_with_token = f"{standard_url}{separator}st={user_token}" if standard_url else None
+            low_url_with_token = f"{low_url}{separator}st={user_token}" if low_url else None
+            icon_url_with_token = f"{icon_url}{separator}st={user_token}" if icon_url else None
+        else:
+            original_url_with_token = original_url
+            standard_url_with_token = standard_url
+            low_url_with_token = low_url
+            icon_url_with_token = icon_url
+
         file_responses.append({
             "file_id": f.file_id,
             "original_filename": f.original_filename,
@@ -310,10 +373,16 @@ async def dashboard(
             "expires_at": f.expires_at,
             "is_expired": f.is_expired,
             "is_deleted": f.is_deleted,
-            "original_url": get_file_url(request, f.file_id, "original"),
-            "standard_url": get_file_url(request, f.file_id, "standard") if f.standard_path else None,
-            "low_url": get_file_url(request, f.file_id, "low") if f.low_path else None,
-            "icon_url": get_file_url(request, f.file_id, "icon") if f.icon_path else None,
+            "require_token": f.require_token,
+            "allowed_referers": f.allowed_referers,
+            "original_url": original_url,
+            "standard_url": standard_url,
+            "low_url": low_url,
+            "icon_url": icon_url,
+            "original_url_with_token": original_url_with_token,
+            "standard_url_with_token": standard_url_with_token,
+            "low_url_with_token": low_url_with_token,
+            "icon_url_with_token": icon_url_with_token,
         })
 
     return templates.TemplateResponse(
@@ -322,6 +391,7 @@ async def dashboard(
         context={
             "files": file_responses,
             "user": current_user,
+            "user_token": user_token,
         },
     )
 
@@ -447,4 +517,69 @@ async def restore_file(
     return {
         "success": True,
         "message": "File has been restored",
+    }
+
+
+@router.get("/api/user/token")
+async def get_user_token(
+    current_user: User = Depends(get_current_active_user),
+):
+    return {
+        "success": True,
+        "token": current_user.secret_token,
+    }
+
+
+@router.post("/api/user/token/reset")
+async def reset_user_token(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    from app.models import generate_secret_token
+
+    new_token = generate_secret_token()
+    current_user.secret_token = new_token
+    await db.commit()
+    await db.refresh(current_user)
+
+    return {
+        "success": True,
+        "message": "Token has been reset",
+        "token": new_token,
+    }
+
+
+@router.put("/api/media/{file_id}/token-settings")
+async def update_file_token_settings(
+    file_id: str,
+    require_token: bool = Form(False),
+    allowed_referers: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    result = await db.execute(
+        select(MediaFile).where(
+            MediaFile.file_id == file_id,
+            MediaFile.user_id == current_user.id,
+        )
+    )
+    media_file = result.scalar_one_or_none()
+
+    if not media_file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    media_file.require_token = require_token
+    media_file.allowed_referers = allowed_referers if allowed_referers.strip() else None
+
+    await db.commit()
+    await db.refresh(media_file)
+
+    return {
+        "success": True,
+        "message": "Token settings updated",
+        "require_token": media_file.require_token,
+        "allowed_referers": media_file.allowed_referers,
     }

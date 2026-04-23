@@ -148,6 +148,44 @@
         color: #666;
         margin-top: 5px;
     }
+    .form-check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    .form-check input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+    }
+    .form-check label {
+        font-size: 14px;
+        cursor: pointer;
+    }
+    .token-options {
+        display: none;
+        margin-top: 10px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border-left: 3px solid #667eea;
+    }
+    .token-options.show {
+        display: block;
+    }
+    .token-options label {
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        display: block;
+    }
+    .token-options input[type="text"] {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 13px;
+    }
 </style>
 {% endblock %}
 
@@ -168,6 +206,19 @@
                 <option value="365">1年后</option>
             </select>
             <div class="hint">过期后文件将无法访问，但记录会保留用于审查</div>
+        </div>
+        <div class="option-group">
+            <label>防盗链保护</label>
+            <div class="form-check">
+                <input type="checkbox" id="requireToken">
+                <label for="requireToken">启用Token防盗链验证</label>
+            </div>
+            <div class="token-options" id="tokenOptions">
+                <label for="allowedReferers">允许的Referer域名（可选）</label>
+                <input type="text" id="allowedReferers" placeholder="example.com, yoursite.com">
+                <div class="hint">来自这些域名的请求无需Token即可访问，多个用逗号分隔</div>
+            </div>
+            <div class="hint">启用后，图片需携带st参数或来自允许的Referer才能访问</div>
         </div>
     </div>
     
@@ -232,6 +283,10 @@ fileInput.addEventListener('change', (e) => {
     }
 });
 
+document.getElementById('requireToken').addEventListener('change', function() {
+    document.getElementById('tokenOptions').classList.toggle('show', this.checked);
+});
+
 async function handleFile(file) {
     errorMsg.style.display = 'none';
     resultCard.style.display = 'none';
@@ -259,6 +314,16 @@ async function handleFile(file) {
     
     const expireDays = document.getElementById('expireDays').value;
     formData.append('expire_days', expireDays);
+    
+    const requireToken = document.getElementById('requireToken').checked;
+    formData.append('require_token', requireToken ? 'true' : 'false');
+    
+    if (requireToken) {
+        const allowedReferers = document.getElementById('allowedReferers').value;
+        if (allowedReferers.trim()) {
+            formData.append('allowed_referers', allowedReferers);
+        }
+    }
     
     try {
         const response = await fetch('/upload', {

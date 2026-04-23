@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
@@ -7,6 +8,10 @@ from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Tex
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+
+def generate_secret_token() -> str:
+    return secrets.token_urlsafe(32)
 
 
 class MediaType(PyEnum):
@@ -31,6 +36,9 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    secret_token: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, default=generate_secret_token
+    )
     is_active: Mapped[bool] = mapped_column(default=True)
     is_admin: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -103,5 +111,8 @@ class MediaFile(Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     deleted_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    require_token: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    allowed_referers: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="media_files")
