@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}图床 - 快速上传，轻松分享{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero {
+        text-align: center;
+        padding: 80px 20px;
+        color: white;
+    }
+    .hero h1 {
+        font-size: 3rem;
+        margin-bottom: 20px;
+        color: white;
+    }
+    .hero p {
+        font-size: 1.2rem;
+        margin-bottom: 40px;
+        opacity: 0.9;
+    }
+    .hero-buttons {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .hero-buttons .btn {
+        padding: 15px 40px;
+        font-size: 1.1rem;
+    }
+    .hero-buttons .btn-white {
+        background: white;
+        color: #667eea;
+    }
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 30px;
+        margin-top: 60px;
+    }
+    .feature-card {
+        background: rgba(255,255,255,0.95);
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        transition: transform 0.3s;
+    }
+    .feature-card:hover {
+        transform: translateY(-10px);
+    }
+    .feature-icon {
+        font-size: 3rem;
+        margin-bottom: 20px;
+    }
+    .feature-card h3 {
+        margin-bottom: 15px;
+        color: #333;
+    }
+    .feature-card p {
+        color: #666;
+        line-height: 1.6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>🖼️ 图床</h1>
+    <p>快速上传图片和视频，自动生成多质量版本，一键分享链接</p>
+    <div class="hero-buttons">
+        <a href="/register" class="btn btn-white">立即注册</a>
+        <a href="/login" class="btn btn-secondary" style="background: rgba(255,255,255,0.2); color: white; border-color: white;">登录账号</a>
+    </div>
+</div>
+
+<div class="features">
+    <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>极速上传</h3>
+        <p>支持拖拽上传，最大100MB文件，异步处理不阻塞</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">🖼️</div>
+        <h3>多质量转换</h3>
+        <p>图片自动生成原图、标准、低质量、图标四种版本</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">🔗</div>
+        <h3>分享链接</h3>
+        <p>每个质量版本都有独立的分享链接，一键复制</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>安全可靠</h3>
+        <p>完整的用户鉴权系统，Session + JWT 双重保护</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>访问统计</h3>
+        <p>实时统计文件访问次数，了解分享效果</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">🎬</div>
+        <h3>视频支持</h3>
+        <p>不仅支持图片，还支持 MP4、WebM 等视频格式</p>
+    </div>
+</div>
+{% endblock %}

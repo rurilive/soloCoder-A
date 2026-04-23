@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}注册 - 图床{% endblock %}
+
+{% block content %}
+<div class="row" style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+    <div class="card" style="max-width: 400px; width: 100%;">
+        <h2 class="text-center">注册</h2>
+        <form id="registerForm" method="POST">
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" name="username" required placeholder="3-50个字符">
+            </div>
+            <div class="form-group">
+                <label for="email">邮箱</label>
+                <input type="email" id="email" name="email" required placeholder="用于找回密码">
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" required placeholder="至少6个字符">
+            </div>
+            <div class="form-group">
+                <label for="confirm_password">确认密码</label>
+                <input type="password" id="confirm_password" name="confirm_password" required placeholder="再次输入密码">
+            </div>
+            <button type="submit" class="btn" style="width: 100%; font-size: 16px;">注册</button>
+        </form>
+        <p class="text-center mt-2">
+            已有账号？<a href="/login">立即登录</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    
+    if (password !== confirmPassword) {
+        alert('两次输入的密码不一致');
+        return;
+    }
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/register', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            alert('注册成功！请登录');
+            window.location.href = '/login';
+        } else {
+            const data = await response.json();
+            alert(data.detail || '注册失败，请检查输入信息');
+        }
+    } catch (error) {
+        alert('网络错误，请稍后重试');
+    }
+});
+</script>
+{% endblock %}

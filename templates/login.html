@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - 图床{% endblock %}
+
+{% block content %}
+<div class="row" style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+    <div class="card" style="max-width: 400px; width: 100%;">
+        <h2 class="text-center">登录</h2>
+        <form id="loginForm" method="POST">
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" name="username" required placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" required placeholder="请输入密码">
+            </div>
+            <button type="submit" class="btn" style="width: 100%; font-size: 16px;">登录</button>
+        </form>
+        <p class="text-center mt-2">
+            还没有账号？<a href="/register">立即注册</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/login', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            window.location.href = '/dashboard';
+        } else {
+            const data = await response.json();
+            alert(data.detail || '登录失败，请检查用户名和密码');
+        }
+    } catch (error) {
+        alert('网络错误，请稍后重试');
+    }
+});
+</script>
+{% endblock %}
