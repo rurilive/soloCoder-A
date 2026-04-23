@@ -317,18 +317,22 @@ export class TelegramBotHandler {
   }
 
   private async showHelp(chatId: number, user: User): Promise<void> {
-    const helpText = `图床服务帮助\\n\\n` +
-      `📤 *上传文件*\\n直接发送图片、视频或文档即可上传。\\n\\n` +
-      `📋 *可用命令*\\n` +
-      `/start - 开始使用\\n` +
-      `/help - 显示此帮助\\n` +
-      `/token - 查看您的访问令牌\\n` +
-      `/files - 查看最近上传的文件\\n` +
-      `/stats - 查看统计信息\\n\\n` +
-      `🔗 *文件链接格式*\\n` +
-      `\\`/file/{file_id}/original\\` - 原图\\n` +
-      `\\`/file/{file_id}/standard\\` - 标准质量\\n` +
-      `\\`/file/{file_id}/low\\` - 低质量`;
+    const helpText = `图床服务帮助
+
+📤 *上传文件*
+直接发送图片、视频或文档即可上传。
+
+📋 *可用命令*
+/start - 开始使用
+/help - 显示此帮助
+/token - 查看您的访问令牌
+/files - 查看最近上传的文件
+/stats - 查看统计信息
+
+🔗 *文件链接格式*
+\`/file/{file_id}/original\` - 原图
+\`/file/{file_id}/standard\` - 标准质量
+\`/file/{file_id}/low\` - 低质量`;
 
     await this.service.sendMessage(chatId, helpText);
   }
