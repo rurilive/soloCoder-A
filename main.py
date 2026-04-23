@@ -1,14 +1,34 @@
 import re
+import jinja2
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.database import init_db, get_db
 from app.models import Post, Category, Tag
+
+
+TEMPLATE_DIR = Path(__file__).parent / "templates"
+
+env = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(TEMPLATE_DIR),
+    autoescape=True,
+    cache_size=0,
+    auto_reload=True,
+)
+
+
+def url_for(request: Request, name: str, **path_params) -> str:
+    return request.url_for(name, **path_params)
+
+
+def render_template(template_name: str, context: dict) -> str:
+    template = env.get_template(template_name)
+    return template.render(**context)
 
 
 @asynccontextmanager
@@ -21,12 +41,37 @@ app = FastAPI(title="瀑布流博客", lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-templates = Jinja2Templates(directory="templates")
-
 
 def slugify(text: str) -> str:
     text = re.sub(r'[^\w\s-]', '', text).strip().lower()
     return re.sub(r'[-\s]+', '-', text)
+
+
+def category_to_dict(category):
+    return {
+        'id': category.id,
+        'name': category.name,
+        'description': category.description,
+        'posts_count': len(category.posts) if category.posts else 0
+    }
+
+
+def tag_to_dict(tag):
+    return {
+        'id': tag.id,
+        'name': tag.name,
+        'posts_count': len(tag.posts) if tag.posts else 0
+    }
+
+
+def get_categories_dict(db: Session):
+    categories = db.query(Category).all()
+    return [category_to_dict(c) for c in categories]
+
+
+def get_tags_dict(db: Session):
+    tags = db.query(Tag).all()
+    return [tag_to_dict(t) for t in tags]
 
 
 def get_or_create_tags(db: Session, tag_names: str) -> list:
@@ -49,21 +94,22 @@ def get_or_create_tags(db: Session, tag_names: str) -> list:
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, db: Session = Depends(get_db)):
     posts = db.query(Post).filter(Post.is_published == 1).order_by(desc(Post.created_at)).all()
-    categories = db.query(Category).all()
-    tags = db.query(Tag).all()
     
     post_dicts = [post.to_dict() for post in posts]
+    categories_dict = get_categories_dict(db)
+    tags_dict = get_tags_dict(db)
     
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "posts": post_dicts,
-            "categories": categories,
-            "tags": tags,
-            "title": "首页"
-        }
-    )
+    context = {
+        "request": request,
+        "posts": post_dicts,
+        "categories": categories_dict,
+        "tags": tags_dict,
+        "title": "首页",
+        "url_for": lambda name, **path_params: url_for(request, name, **path_params),
+    }
+    
+    html = render_template("index.html", context)
+    return HTMLResponse(content=html)
 
 
 @app.get("/post/{post_id}", response_class=HTMLResponse)
@@ -75,36 +121,38 @@ async def post_detail(request: Request, post_id: int, db: Session = Depends(get_
     post.view_count += 1
     db.commit()
     
-    categories = db.query(Category).all()
-    tags = db.query(Tag).all()
+    categories_dict = get_categories_dict(db)
+    tags_dict = get_tags_dict(db)
     
-    return templates.TemplateResponse(
-        "post.html",
-        {
-            "request": request,
-            "post": post.to_dict(),
-            "categories": categories,
-            "tags": tags,
-            "title": post.title
-        }
-    )
+    context = {
+        "request": request,
+        "post": post.to_dict(),
+        "categories": categories_dict,
+        "tags": tags_dict,
+        "title": post.title,
+        "url_for": lambda name, **path_params: url_for(request, name, **path_params),
+    }
+    
+    html = render_template("post.html", context)
+    return HTMLResponse(content=html)
 
 
 @app.get("/create", response_class=HTMLResponse)
 async def create_post_form(request: Request, db: Session = Depends(get_db)):
-    categories = db.query(Category).all()
-    tags = db.query(Tag).all()
+    categories_dict = get_categories_dict(db)
+    tags_dict = get_tags_dict(db)
     
-    return templates.TemplateResponse(
-        "form.html",
-        {
-            "request": request,
-            "categories": categories,
-            "tags": tags,
-            "title": "新建文章",
-            "post": None
-        }
-    )
+    context = {
+        "request": request,
+        "categories": categories_dict,
+        "tags": tags_dict,
+        "title": "新建文章",
+        "post": None,
+        "url_for": lambda name, **path_params: url_for(request, name, **path_params),
+    }
+    
+    html = render_template("form.html", context)
+    return HTMLResponse(content=html)
 
 
 @app.post("/create")
@@ -155,22 +203,23 @@ async def edit_post_form(request: Request, post_id: int, db: Session = Depends(g
     if not post:
         raise HTTPException(status_code=404, detail="文章不存在")
     
-    categories = db.query(Category).all()
-    tags = db.query(Tag).all()
+    categories_dict = get_categories_dict(db)
+    tags_dict = get_tags_dict(db)
     
     post_dict = post.to_dict()
     post_dict['tag_names'] = ', '.join([tag.name for tag in post.tags])
     
-    return templates.TemplateResponse(
-        "form.html",
-        {
-            "request": request,
-            "categories": categories,
-            "tags": tags,
-            "title": "编辑文章",
-            "post": post_dict
-        }
-    )
+    context = {
+        "request": request,
+        "categories": categories_dict,
+        "tags": tags_dict,
+        "title": "编辑文章",
+        "post": post_dict,
+        "url_for": lambda name, **path_params: url_for(request, name, **path_params),
+    }
+    
+    html = render_template("form.html", context)
+    return HTMLResponse(content=html)
 
 
 @app.post("/edit/{post_id}")
@@ -236,22 +285,22 @@ async def posts_by_category(request: Request, category_name: str, db: Session = 
         Post.is_published == 1
     ).order_by(desc(Post.created_at)).all()
     
-    categories = db.query(Category).all()
-    tags = db.query(Tag).all()
-    
     post_dicts = [post.to_dict() for post in posts]
+    categories_dict = get_categories_dict(db)
+    tags_dict = get_tags_dict(db)
     
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "posts": post_dicts,
-            "categories": categories,
-            "tags": tags,
-            "title": f"分类: {category_name}",
-            "current_category": category_name
-        }
-    )
+    context = {
+        "request": request,
+        "posts": post_dicts,
+        "categories": categories_dict,
+        "tags": tags_dict,
+        "title": f"分类: {category_name}",
+        "current_category": category_name,
+        "url_for": lambda name, **path_params: url_for(request, name, **path_params),
+    }
+    
+    html = render_template("index.html", context)
+    return HTMLResponse(content=html)
 
 
 @app.get("/tag/{tag_name}", response_class=HTMLResponse)
@@ -265,22 +314,22 @@ async def posts_by_tag(request: Request, tag_name: str, db: Session = Depends(ge
         Post.is_published == 1
     ).order_by(desc(Post.created_at)).all()
     
-    categories = db.query(Category).all()
-    tags = db.query(Tag).all()
-    
     post_dicts = [post.to_dict() for post in posts]
+    categories_dict = get_categories_dict(db)
+    tags_dict = get_tags_dict(db)
     
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "posts": post_dicts,
-            "categories": categories,
-            "tags": tags,
-            "title": f"标签: {tag_name}",
-            "current_tag": tag_name
-        }
-    )
+    context = {
+        "request": request,
+        "posts": post_dicts,
+        "categories": categories_dict,
+        "tags": tags_dict,
+        "title": f"标签: {tag_name}",
+        "current_tag": tag_name,
+        "url_for": lambda name, **path_params: url_for(request, name, **path_params),
+    }
+    
+    html = render_template("index.html", context)
+    return HTMLResponse(content=html)
 
 
 if __name__ == "__main__":

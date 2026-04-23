@@ -38,7 +38,7 @@
                             <li>
                                 <a href="/category/{{ category.name }}">
                                     {{ category.name }}
-                                    <span class="count">({{ category.posts|length }})</span>
+                                    <span class="count">({{ category.posts_count }})</span>
                                 </a>
                             </li>
                             {% endfor %}
@@ -51,7 +51,7 @@
                             {% for tag in tags %}
                             <a href="/tag/{{ tag.name }}" class="tag-link">
                                 {{ tag.name }}
-                                <span class="count">({{ tag.posts|length }})</span>
+                                <span class="count">({{ tag.posts_count }})</span>
                             </a>
                             {% endfor %}
                         </div>
