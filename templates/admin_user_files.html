@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+
+{% block title %}用户文件管理 - 图床{% endblock %}
+
+{% block extra_css %}
+<style>
+    .user-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .user-avatar {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    .file-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 15px;
+    }
+    .file-card {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border: 2px solid #eee;
+    }
+    .file-card.expired {
+        border-color: #ffc107;
+        opacity: 0.8;
+    }
+    .file-card.deleted {
+        border-color: #dc3545;
+        opacity: 0.6;
+    }
+    .file-preview {
+        width: 100%;
+        height: 150px;
+        background: #f5f5f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .file-preview img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: cover;
+    }
+    .file-status {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+    }
+    .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .badge-success {
+        background: #d4edda;
+        color: #155724;
+    }
+    .badge-danger {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .badge-warning {
+        background: #fff3cd;
+        color: #856404;
+    }
+    .file-info {
+        padding: 12px;
+    }
+    .file-info .name {
+        font-weight: 600;
+        margin-bottom: 5px;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .file-info .meta {
+        font-size: 11px;
+        color: #888;
+        margin-bottom: 8px;
+    }
+    .file-info .dates {
+        font-size: 11px;
+        color: #666;
+        margin-bottom: 8px;
+    }
+    .action-btns {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .action-btn {
+        padding: 5px 10px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .action-btn.restore {
+        background: #28a745;
+        color: white;
+    }
+    .action-btn.hard-delete {
+        background: #dc3545;
+        color: white;
+    }
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+    .modal.show {
+        display: flex;
+    }
+    .modal-content {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        max-width: 500px;
+        width: 90%;
+    }
+    .modal-content h3 {
+        margin-bottom: 20px;
+    }
+    .modal-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 20px;
+    }
+    .cancel-btn, .confirm-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .cancel-btn {
+        background: #e0e0e0;
+        color: #333;
+    }
+    .confirm-btn {
+        background: #dc3545;
+        color: white;
+    }
+    .filter-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .filter-row select {
+        padding: 8px 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+    .stats-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .stat-item {
+        background: #f8f9fa;
+        padding: 10px 15px;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+    .stat-item .value {
+        font-weight: 700;
+        margin-left: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="user-header">
+        <div class="user-info">
+            <div class="user-avatar">{{ target_user.username[0].upper() }}</div>
+            <div>
+                <h2 style="margin-bottom: 5px;">{{ target_user.username }}</h2>
+                <p style="color: #666; font-size: 14px;">{{ target_user.email }}</p>
+            </div>
+        </div>
+        <a href="/admin" class="btn btn-secondary">返回管理面板</a>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat-item">
+            总文件数: <span class="value">{{ files|length }}</span>
+        </div>
+        <div class="stat-item">
+            正常: <span class="value">{{ files|selectattr('is_deleted', 'equalto', false)|selectattr('is_expired', 'equalto', false)|list|length }}</span>
+        </div>
+        <div class="stat-item">
+            已过期: <span class="value">{{ files|selectattr('is_expired', 'equalto', true)|list|length }}</span>
+        </div>
+        <div class="stat-item">
+            已删除: <span class="value">{{ files|selectattr('is_deleted', 'equalto', true)|list|length }}</span>
+        </div>
+    </div>
+
+    <div class="filter-row">
+        <label style="font-weight: 600;">筛选:</label>
+        <select id="fileFilter" onchange="filterFiles()">
+            <option value="all">全部文件</option>
+            <option value="active">正常文件</option>
+            <option value="expired">已过期</option>
+            <option value="deleted">已删除(软)</option>
+        </select>
+    </div>
+
+    {% if files %}
+    <div class="file-grid" id="fileGrid">
+        {% for file in files %}
+        <div class="file-card {% if file.is_expired %}expired{% endif %} {% if file.is_deleted %}deleted{% endif %}" 
+             data-status="{% if file.is_deleted %}deleted{% elif file.is_expired %}expired{% else %}active{% endif %}">
+            <div class="file-preview">
+                <div class="file-status">
+                    {% if file.is_deleted %}
+                    <span class="badge badge-danger">已删除</span>
+                    {% elif file.is_expired %}
+                    <span class="badge badge-warning">已过期</span>
+                    {% else %}
+                    <span class="badge badge-success">正常</span>
+                    {% endif %}
+                </div>
+                {% if file.media_type == 'image' and file.original_url and not file.is_deleted and not file.is_expired %}
+                <img src="{{ file.original_url }}" alt="{{ file.original_filename }}" loading="lazy">
+                {% else %}
+                <div style="font-size: 3rem;">
+                    {% if file.media_type == 'video' %}🎬{% else %}📄{% endif %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="file-info">
+                <div class="name" title="{{ file.original_filename }}">{{ file.original_filename }}</div>
+                <div class="meta">
+                    {{ (file.file_size / 1024)|round(1) }} KB | 👁️ {{ file.view_count }}
+                </div>
+                <div class="dates">
+                    创建: {{ file.created_at.strftime('%Y-%m-%d') }}
+                    {% if file.expires_at %}
+                    <br>过期: {{ file.expires_at.strftime('%Y-%m-%d') }}
+                    {% endif %}
+                    {% if file.deleted_at %}
+                    <br>删除: {{ file.deleted_at.strftime('%Y-%m-%d') }}
+                    {% endif %}
+                </div>
+                <div class="action-btns">
+                    {% if file.is_deleted %}
+                    <button class="action-btn restore" onclick="restoreFile('{{ file.file_id }}')">恢复</button>
+                    {% endif %}
+                    <button class="action-btn hard-delete" onclick="openHardDeleteModal('{{ file.file_id }}', '{{ file.original_filename }}')">永久删除</button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="text-align: center; color: #888; padding: 40px;">该用户暂无文件</p>
+    {% endif %}
+</div>
+
+<div class="modal" id="hardDeleteModal">
+    <div class="modal-content">
+        <h3>⚠️ 永久删除文件</h3>
+        <p style="color: #dc3545; margin-bottom: 15px;">
+            <strong>警告：此操作不可撤销！</strong>
+        </p>
+        <p style="margin-bottom: 10px;">
+            即将永久删除: <strong id="deleteFileName"></strong>
+        </p>
+        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+            此操作将：
+            <br>• 从磁盘删除所有质量版本的文件
+            <br>• 从数据库删除文件记录
+            <br>• 不可恢复
+        </p>
+        <div class="modal-buttons">
+            <button class="cancel-btn" onclick="closeHardDeleteModal()">取消</button>
+            <button class="confirm-btn" onclick="hardDeleteFile()">确认永久删除</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentDeleteFileId = null;
+
+function filterFiles() {
+    const filter = document.getElementById('fileFilter').value;
+    const cards = document.querySelectorAll('#fileGrid .file-card');
+    
+    cards.forEach(card => {
+        const status = card.dataset.status;
+        if (filter === 'all') {
+            card.style.display = 'block';
+        } else if (filter === status) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function openHardDeleteModal(fileId, fileName) {
+    currentDeleteFileId = fileId;
+    document.getElementById('deleteFileName').textContent = fileName;
+    document.getElementById('hardDeleteModal').classList.add('show');
+}
+
+function closeHardDeleteModal() {
+    currentDeleteFileId = null;
+    document.getElementById('hardDeleteModal').classList.remove('show');
+}
+
+async function hardDeleteFile() {
+    if (!currentDeleteFileId) return;
+    
+    const formData = new FormData();
+    formData.append('reason', '管理员操作');
+    
+    try {
+        const response = await fetch(`/api/admin/media/${currentDeleteFileId}/hard-delete`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert(data.detail || data.message || '操作失败');
+        }
+    } catch (err) {
+        alert('网络错误，请稍后重试');
+    }
+    
+    closeHardDeleteModal();
+}
+
+async function restoreFile(fileId) {
+    if (!confirm('确定要恢复此文件吗？')) return;
+    
+    try {
+        const response = await fetch(`/api/admin/media/${fileId}/restore`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            alert('文件已恢复');
+            location.reload();
+        } else {
+            alert(data.detail || data.message || '操作失败');
+        }
+    } catch (err) {
+        alert('网络错误，请稍后重试');
+    }
+}
+
+document.getElementById('hardDeleteModal').addEventListener('click', function(e) {
+    if (e.target === this) closeHardDeleteModal();
+});
+</script>
+{% endblock %}

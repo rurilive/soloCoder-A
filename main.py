@@ -10,7 +10,7 @@ from app.config import get_settings
 from app.database import async_session_maker, init_db
 from app.dependencies import get_current_user as get_user
 from app.models import User
-from app.routers import auth, media
+from app.routers import auth, media, admin
 
 settings = get_settings()
 templates = Jinja2Templates(directory="templates")
@@ -62,3 +62,4 @@ async def home(request: Request):
 
 app.include_router(auth.router)
 app.include_router(media.router)
+app.include_router(admin.router)

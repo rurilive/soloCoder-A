@@ -121,6 +121,25 @@ async def migrate():
                     print(f"已为 {len(users_without_token)} 个用户生成 secret_token")
         except Exception as e:
             print(f"生成用户 secret_token 时出错: {e}")
+        
+        try:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
+            print("已添加 users.is_admin 列")
+        except Exception as e:
+            print(f"users.is_admin 列可能已存在: {e}")
+        
+        try:
+            from sqlalchemy.ext.asyncio import async_sessionmaker
+            async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+                from sqlalchemy import text as sa_text
+                result = await session.execute(sa_text("SELECT id FROM users ORDER BY id ASC LIMIT 1"))
+                first_user = result.fetchone()
+                if first_user:
+                    await session.execute(sa_text("UPDATE users SET is_admin = 1 WHERE id = :id"), {"id": first_user[0]})
+                    await session.commit()
+                    print(f"已将第一个用户 (id={first_user[0]}) 设置为管理员")
+        except Exception as e:
+            print(f"设置管理员时出错: {e}")
 
     await engine.dispose()
     print("数据库迁移完成!")
