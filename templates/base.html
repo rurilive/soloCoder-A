@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ title }} - 瀑布流博客{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <a href="/" class="logo">瀑布流博客</a>
+                <ul class="nav-links">
+                    <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">首页</a></li>
+                    <li><a href="/create" class="{% if request.url.path == '/create' %}active{% endif %}">写文章</a></li>
+                </ul>
+                <div class="search-box">
+                    <input type="text" placeholder="搜索文章..." id="search-input">
+                    <button type="button" id="search-btn">搜索</button>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="content-wrapper">
+                <div class="main-column">
+                    {% block content %}{% endblock %}
+                </div>
+                <aside class="sidebar">
+                    <div class="widget">
+                        <h3 class="widget-title">分类</h3>
+                        <ul class="category-list">
+                            {% for category in categories %}
+                            <li>
+                                <a href="/category/{{ category.name }}">
+                                    {{ category.name }}
+                                    <span class="count">({{ category.posts|length }})</span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">标签云</h3>
+                        <div class="tag-cloud">
+                            {% for tag in tags %}
+                            <a href="/tag/{{ tag.name }}" class="tag-link">
+                                {{ tag.name }}
+                                <span class="count">({{ tag.posts|length }})</span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 瀑布流博客. 由 FastAPI + Jinja2 + SQLite 驱动</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

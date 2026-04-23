@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - 瀑布流博客{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/form.css">
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <header class="form-header">
+        <h1 class="form-title">{{ title }}</h1>
+        <p class="form-subtitle">
+            {% if post %}
+            修改您的文章
+            {% else %}
+            创作一篇新文章
+            {% endif %}
+        </p>
+    </header>
+    
+    <form 
+        action="{% if post %}/edit/{{ post.id }}{% else %}/create{% endif %}" 
+        method="post" 
+        class="post-form"
+    >
+        <div class="form-group">
+            <label for="title" class="form-label">标题 <span class="required">*</span></label>
+            <input 
+                type="text" 
+                id="title" 
+                name="title" 
+                class="form-input"
+                placeholder="输入文章标题..."
+                value="{{ post.title if post else '' }}"
+                required
+            >
+        </div>
+        
+        <div class="form-group">
+            <label for="cover_image" class="form-label">封面图片 URL</label>
+            <input 
+                type="url" 
+                id="cover_image" 
+                name="cover_image" 
+                class="form-input"
+                placeholder="https://example.com/image.jpg"
+                value="{{ post.cover_image if post else '' }}"
+            >
+            <small class="form-hint">可选，输入图片的完整 URL</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="excerpt" class="form-label">摘要</label>
+            <textarea 
+                id="excerpt" 
+                name="excerpt" 
+                class="form-textarea"
+                rows="2"
+                placeholder="文章简短描述（留空则自动从内容截取）..."
+            >{{ post.excerpt if post else '' }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="content" class="form-label">内容 <span class="required">*</span></label>
+            <textarea 
+                id="content" 
+                name="content" 
+                class="form-textarea"
+                rows="15"
+                placeholder="开始创作您的文章..."
+                required
+            >{{ post.content if post else '' }}</textarea>
+            <div class="editor-toolbar">
+                <button type="button" class="toolbar-btn" data-action="bold">B</button>
+                <button type="button" class="toolbar-btn" data-action="italic">I</button>
+                <button type="button" class="toolbar-btn" data-action="link">链接</button>
+                <button type="button" class="toolbar-btn" data-action="list">列表</button>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="category_name" class="form-label">分类</label>
+                <div class="select-wrapper">
+                    <select id="category_name" name="category_name" class="form-select">
+                        <option value="">-- 选择分类 --</option>
+                        {% for category in categories %}
+                        <option 
+                            value="{{ category.name }}"
+                            {% if post and post.category == category.name %}selected{% endif %}
+                        >
+                            {{ category.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <small class="form-hint">选择现有分类，或输入新分类名称</small>
+                <input 
+                    type="text" 
+                    id="category_new" 
+                    class="form-input mt-2"
+                    placeholder="或输入新分类名称..."
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="tag_names" class="form-label">标签</label>
+                <input 
+                    type="text" 
+                    id="tag_names" 
+                    name="tag_names" 
+                    class="form-input"
+                    placeholder="标签1, 标签2, 标签3"
+                    value="{{ post.tag_names if post else '' }}"
+                >
+                <small class="form-hint">多个标签用逗号分隔</small>
+                {% if tags and tags|length > 0 %}
+                <div class="tag-suggestions">
+                    <span class="suggestion-label">常用标签：</span>
+                    {% for tag in tags %}
+                    <button type="button" class="tag-btn" data-tag="{{ tag.name }}">
+                        {{ tag.name }}
+                    </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">
+                {% if post %}
+                更新文章
+                {% else %}
+                发布文章
+                {% endif %}
+            </button>
+            <a href="{% if post %}/post/{{ post.id }}{% else %}/{% endif %}" class="btn btn-secondary btn-lg">
+                取消
+            </a>
+        </div>
+    </form>
+</div>
+
+{% block extra_js %}
+<script src="/static/js/form.js"></script>
+{% endblock %}
+{% endblock %}
