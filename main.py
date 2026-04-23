@@ -6,19 +6,19 @@ from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 import uuid
 import hashlib
+import secrets
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict
 from pydantic import BaseModel
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 
 SECRET_KEY = "your-secret-key-change-in-production-please-use-random-key"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
+SALT_LENGTH = 16
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login", auto_error=False)
 
 
@@ -84,12 +84,29 @@ diaries: List[DiaryEntry] = []
 share_links: Dict[str, ShareLink] = {}
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+def generate_salt() -> str:
+    return secrets.token_hex(SALT_LENGTH)
+
+
+def hash_password_with_salt(password: str, salt: str) -> str:
+    salted_password = f"{salt}{password}"
+    return hashlib.sha256(salted_password.encode('utf-8')).hexdigest()
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    salt = generate_salt()
+    password_hash = hash_password_with_salt(password, salt)
+    return f"{salt}${password_hash}"
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        salt, stored_hash = hashed_password.split('$', 1)
+    except ValueError:
+        return False
+    
+    computed_hash = hash_password_with_salt(plain_password, salt)
+    return secrets.compare_digest(computed_hash, stored_hash)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
