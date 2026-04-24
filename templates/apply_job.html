@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}投递简历 - 招聘求职平台{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white py-3">
+                <h3 class="mb-0">投递简历</h3>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-info mb-4">
+                    <h5 class="mb-2">📋 职位信息</h5>
+                    <p class="mb-1"><strong>{{ job.title }}</strong> - {{ job.company_name }}</p>
+                    {% if job.salary_range %}
+                        <span class="badge bg-success me-2">{{ job.salary_range }}</span>
+                    {% endif %}
+                    {% if job.location %}
+                        <span class="badge bg-secondary me-2">📍 {{ job.location }}</span>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <h6>您的简历</h6>
+                    {% if resume %}
+                        <div class="alert alert-secondary">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="me-2">📄</span>
+                                    <strong>{{ resume.original_name }}</strong>
+                                    <span class="text-muted small ms-2">上传于 {{ resume.created_at[:19] }}</span>
+                                </div>
+                                <a href="{{ url_for('download_resume', resume_id=resume.id) }}" class="btn btn-sm btn-outline-primary">
+                                    预览
+                                </a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <p class="mb-0">⚠️ 您还没有上传简历，请先上传简历后再投递</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">投递确认</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="confirm" required>
+                            <label class="form-check-label" for="confirm">
+                                我确认以上信息属实，同意将简历发送给该公司
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" {% if not resume %}disabled{% endif %}>
+                            确认投递
+                        </button>
+                        <a href="{{ url_for('job_detail', job_id=job.id) }}" class="btn btn-secondary">返回</a>
+                    </div>
+                    
+                    {% if not resume %}
+                        <div class="mt-3">
+                            <a href="{{ url_for('upload_resume') }}" class="btn btn-outline-primary">
+                                立即上传简历
+                            </a>
+                        </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

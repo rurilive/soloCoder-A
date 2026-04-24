@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}个人中心 - 招聘求职平台{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">个人中心</h5>
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="#applications" class="list-group-item list-group-item-action active" data-bs-toggle="list">
+                    📋 我的投递
+                </a>
+                <a href="#resume" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    📄 我的简历
+                </a>
+                <a href="{{ url_for('upload_resume') }}" class="list-group-item list-group-item-action">
+                    ⬆️ 上传简历
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-9">
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="applications">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">我的投递记录</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if applications %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>职位名称</th>
+                                            <th>公司名称</th>
+                                            <th>工作地点</th>
+                                            <th>投递时间</th>
+                                            <th>状态</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for app in applications %}
+                                            <tr>
+                                                <td>
+                                                    <a href="{{ url_for('job_detail', job_id=app.job_id) }}">{{ app.job_title }}</a>
+                                                </td>
+                                                <td>{{ app.company_name }}</td>
+                                                <td>{{ app.location or '-' }}</td>
+                                                <td>{{ app.applied_at[:19] }}</td>
+                                                <td>
+                                                    {% set status_classes = {
+                                                        'pending': 'bg-warning',
+                                                        'reviewed': 'bg-info',
+                                                        'interview': 'bg-primary',
+                                                        'accepted': 'bg-success',
+                                                        'rejected': 'bg-danger'
+                                                    } %}
+                                                    {% set status_texts = {
+                                                        'pending': '待处理',
+                                                        'reviewed': '已查看',
+                                                        'interview': '邀请面试',
+                                                        'accepted': '已录用',
+                                                        'rejected': '已拒绝'
+                                                    } %}
+                                                    <span class="badge {{ status_classes.get(app.status, 'bg-secondary') }} status-badge">
+                                                        {{ status_texts.get(app.status, app.status) }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <div class="display-4 text-muted mb-3">📭</div>
+                                <p class="text-muted">您还没有投递任何职位</p>
+                                <a href="{{ url_for('job_list') }}" class="btn btn-primary">浏览职位</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="resume">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">我的简历</h5>
+                        <a href="{{ url_for('upload_resume') }}" class="btn btn-primary btn-sm">
+                            {% if resume %}更新简历{% else %}上传简历{% endif %}
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% if resume %}
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <span class="display-4">📄</span>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">{{ resume.original_name }}</h6>
+                                        <p class="text-muted small mb-0">上传时间: {{ resume.created_at[:19] }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('download_resume', resume_id=resume.id) }}" class="btn btn-success">
+                                    下载简历
+                                </a>
+                                <a href="{{ url_for('upload_resume') }}" class="btn btn-secondary">
+                                    更新简历
+                                </a>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <div class="display-4 text-muted mb-3">📄</div>
+                                <p class="text-muted">您还没有上传简历</p>
+                                <p class="text-muted small">上传简历后才能投递职位</p>
+                                <a href="{{ url_for('upload_resume') }}" class="btn btn-primary">上传简历</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

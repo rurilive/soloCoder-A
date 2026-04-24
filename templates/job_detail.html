@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}{{ job.title }} - 招聘求职平台{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h2 class="mb-2">{{ job.title }}</h2>
+                        <h5 class="text-muted">{{ job.company_name }}</h5>
+                    </div>
+                    {% if session.get('user_type') == 'jobseeker' %}
+                        <a href="{{ url_for('apply_job', job_id=job.id) }}" class="btn btn-primary btn-lg">
+                            立即投递
+                        </a>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    {% if job.salary_range %}
+                        <span class="badge bg-success me-2 fs-6">{{ job.salary_range }}</span>
+                    {% endif %}
+                    {% if job.location %}
+                        <span class="badge bg-secondary me-2 fs-6">📍 {{ job.location }}</span>
+                    {% endif %}
+                    {% if job.job_type %}
+                        <span class="badge bg-info me-2 fs-6">
+                            {% if job.job_type == 'fulltime' %}全职
+                            {% elif job.job_type == 'parttime' %}兼职
+                            {% elif job.job_type == 'internship' %}实习
+                            {% else %}{{ job.job_type }}{% endif %}
+                        </span>
+                    {% endif %}
+                    {% if job.experience_level %}
+                        <span class="badge bg-warning me-2 fs-6">
+                            {% if job.experience_level == 'entry' %}初级/应届生
+                            {% elif job.experience_level == 'mid' %}中级
+                            {% elif job.experience_level == 'senior' %}高级/资深
+                            {% else %}{{ job.experience_level }}{% endif %}
+                        </span>
+                    {% endif %}
+                </div>
+                
+                <hr>
+                
+                <h4 class="mb-3">职位描述</h4>
+                <div class="mb-4">
+                    {{ job.description | replace('\n', '<br>') | safe }}
+                </div>
+                
+                <h4 class="mb-3">任职要求</h4>
+                <div class="mb-4">
+                    {{ job.requirements | replace('\n', '<br>') | safe }}
+                </div>
+                
+                <p class="text-muted small">发布时间: {{ job.created_at[:19] }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">公司信息</h5>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">{{ job.company_name }}</h5>
+                {% if job.company_description %}
+                    <p class="card-text text-muted">{{ job.company_description }}</p>
+                {% else %}
+                    <p class="card-text text-muted small">暂无公司简介</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if session.get('user_type') == 'jobseeker' %}
+            <div class="card mt-4">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('apply_job', job_id=job.id) }}" class="btn btn-primary w-100">
+                        立即投递
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+        
+        {% if not session.get('user_id') %}
+            <div class="card mt-4">
+                <div class="card-body text-center">
+                    <p class="text-muted mb-3">登录后才能投递职位</p>
+                    <a href="{{ url_for('login') }}" class="btn btn-outline-primary">立即登录</a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

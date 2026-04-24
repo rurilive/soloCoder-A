@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}编辑职位 - 招聘求职平台{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white py-3">
+                <h3 class="mb-0">编辑职位</h3>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">职位名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="title" name="title" required value="{{ job.title }}">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="salary_range" class="form-label">薪资范围</label>
+                            <input type="text" class="form-control" id="salary_range" name="salary_range" value="{{ job.salary_range or '' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="location" class="form-label">工作地点</label>
+                            <input type="text" class="form-control" id="location" name="location" value="{{ job.location or '' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="job_type" class="form-label">工作类型</label>
+                            <select class="form-select" id="job_type" name="job_type">
+                                <option value="">请选择</option>
+                                <option value="fulltime" {% if job.job_type == 'fulltime' %}selected{% endif %}>全职</option>
+                                <option value="parttime" {% if job.job_type == 'parttime' %}selected{% endif %}>兼职</option>
+                                <option value="internship" {% if job.job_type == 'internship' %}selected{% endif %}>实习</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="experience_level" class="form-label">经验要求</label>
+                            <select class="form-select" id="experience_level" name="experience_level">
+                                <option value="">请选择</option>
+                                <option value="entry" {% if job.experience_level == 'entry' %}selected{% endif %}>初级/应届生</option>
+                                <option value="mid" {% if job.experience_level == 'mid' %}selected{% endif %}>中级</option>
+                                <option value="senior" {% if job.experience_level == 'senior' %}selected{% endif %}>高级/资深</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">职位描述 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="description" name="description" rows="5" required>{{ job.description }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="requirements" class="form-label">任职要求 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="requirements" name="requirements" rows="5" required>{{ job.requirements }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if job.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="is_active">
+                            职位状态（招聘中）
+                        </label>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">保存修改</button>
+                        <a href="{{ url_for('company_dashboard') }}" class="btn btn-secondary">取消</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

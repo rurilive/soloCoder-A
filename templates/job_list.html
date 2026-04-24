@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}职位列表 - 招聘求职平台{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">🔍 搜索筛选</h5>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('job_list') }}">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="keyword" class="form-label">关键词</label>
+                    <input type="text" class="form-control" id="keyword" name="keyword" 
+                           placeholder="职位名称、描述..." value="{{ keyword }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="location" class="form-label">工作地点</label>
+                    <input type="text" class="form-control" id="location" name="location" 
+                           placeholder="城市、区域..." value="{{ location }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="job_type" class="form-label">工作类型</label>
+                    <select class="form-select" id="job_type" name="job_type">
+                        <option value="">全部</option>
+                        <option value="fulltime" {% if job_type == 'fulltime' %}selected{% endif %}>全职</option>
+                        <option value="parttime" {% if job_type == 'parttime' %}selected{% endif %}>兼职</option>
+                        <option value="internship" {% if job_type == 'internship' %}selected{% endif %}>实习</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="experience_level" class="form-label">经验要求</label>
+                    <select class="form-select" id="experience_level" name="experience_level">
+                        <option value="">全部</option>
+                        <option value="entry" {% if experience_level == 'entry' %}selected{% endif %}>初级/应届生</option>
+                        <option value="mid" {% if experience_level == 'mid' %}selected{% endif %}>中级</option>
+                        <option value="senior" {% if experience_level == 'senior' %}selected{% endif %}>高级/资深</option>
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">搜索</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            职位列表
+            {% if jobs %}
+                <span class="badge bg-secondary">{{ jobs|length }}</span>
+            {% endif %}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if jobs %}
+            <div class="row g-4">
+                {% for job in jobs %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card job-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <a href="{{ url_for('job_detail', job_id=job.id) }}" class="text-decoration-none">
+                                        {{ job.title }}
+                                    </a>
+                                </h5>
+                                <h6 class="card-subtitle text-muted mb-2">{{ job.company_name }}</h6>
+                                <div class="mb-3">
+                                    {% if job.salary_range %}
+                                        <span class="badge bg-success me-1">{{ job.salary_range }}</span>
+                                    {% endif %}
+                                    {% if job.location %}
+                                        <span class="badge bg-secondary me-1">📍 {{ job.location }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    {% if job.job_type %}
+                                        <span class="badge bg-info me-1">
+                                            {% if job.job_type == 'fulltime' %}全职
+                                            {% elif job.job_type == 'parttime' %}兼职
+                                            {% elif job.job_type == 'internship' %}实习
+                                            {% else %}{{ job.job_type }}{% endif %}
+                                        </span>
+                                    {% endif %}
+                                    {% if job.experience_level %}
+                                        <span class="badge bg-warning me-1">
+                                            {% if job.experience_level == 'entry' %}初级
+                                            {% elif job.experience_level == 'mid' %}中级
+                                            {% elif job.experience_level == 'senior' %}高级
+                                            {% else %}{{ job.experience_level }}{% endif %}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <p class="card-text small text-muted">
+                                    {{ job.description[:80] }}{% if job.description|length > 80 %}...{% endif %}
+                                </p>
+                            </div>
+                            <div class="card-footer bg-white">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">{{ job.created_at[:10] }}</small>
+                                    <a href="{{ url_for('job_detail', job_id=job.id) }}" class="btn btn-primary btn-sm">查看详情</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <div class="display-4 text-muted mb-3">🔍</div>
+                <p class="text-muted">暂无匹配的职位</p>
+                <p class="text-muted small">请尝试调整搜索条件</p>
+                <a href="{{ url_for('job_list') }}" class="btn btn-outline-primary mt-2">查看所有职位</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

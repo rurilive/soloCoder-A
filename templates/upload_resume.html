@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}上传简历 - 招聘求职平台{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white py-3">
+                <h3 class="mb-0">上传简历</h3>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-info mb-4">
+                    <h6 class="alert-heading">📄 支持的文件格式</h6>
+                    <p class="mb-0">支持 PDF、DOC、DOCX、TXT 格式，文件大小不超过 16MB</p>
+                </div>
+                
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-4">
+                        <label for="resume" class="form-label">选择简历文件</label>
+                        <input type="file" class="form-control" id="resume" name="resume" 
+                               accept=".pdf,.doc,.docx,.txt" required>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            {% if resume %}更新简历{% else %}上传简历{% endif %}
+                        </button>
+                        <a href="{{ url_for('jobseeker_dashboard') }}" class="btn btn-secondary">取消</a>
+                    </div>
+                </form>
+                
+                {% if resume %}
+                    <hr>
+                    <div class="mt-4">
+                        <h6>当前简历</h6>
+                        <div class="alert alert-secondary">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="me-2">📄</span>
+                                    <strong>{{ resume.original_name }}</strong>
+                                    <span class="text-muted small ms-2">上传于 {{ resume.created_at[:19] }}</span>
+                                </div>
+                                <a href="{{ url_for('download_resume', resume_id=resume.id) }}" class="btn btn-sm btn-outline-primary">
+                                    下载
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

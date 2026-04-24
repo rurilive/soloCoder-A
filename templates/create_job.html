@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}发布职位 - 招聘求职平台{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white py-3">
+                <h3 class="mb-0">发布新职位</h3>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">职位名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="title" name="title" required placeholder="例如：Python开发工程师">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="salary_range" class="form-label">薪资范围</label>
+                            <input type="text" class="form-control" id="salary_range" name="salary_range" placeholder="例如：15-25K/月">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="location" class="form-label">工作地点</label>
+                            <input type="text" class="form-control" id="location" name="location" placeholder="例如：北京市朝阳区">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="job_type" class="form-label">工作类型</label>
+                            <select class="form-select" id="job_type" name="job_type">
+                                <option value="">请选择</option>
+                                <option value="fulltime">全职</option>
+                                <option value="parttime">兼职</option>
+                                <option value="internship">实习</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="experience_level" class="form-label">经验要求</label>
+                            <select class="form-select" id="experience_level" name="experience_level">
+                                <option value="">请选择</option>
+                                <option value="entry">初级/应届生</option>
+                                <option value="mid">中级</option>
+                                <option value="senior">高级/资深</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">职位描述 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="description" name="description" rows="5" required placeholder="详细描述职位职责..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="requirements" class="form-label">任职要求 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="requirements" name="requirements" rows="5" required placeholder="详细描述任职要求..."></textarea>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">发布职位</button>
+                        <a href="{{ url_for('company_dashboard') }}" class="btn btn-secondary">取消</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

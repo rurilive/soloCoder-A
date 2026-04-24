@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - 招聘求职平台{% endblock %}
+
+{% block content %}
+<div class="jumbotron bg-primary text-white rounded-3 p-5 mb-5">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1 class="display-4 fw-bold">找到理想工作，招到优秀人才</h1>
+            <p class="lead mt-3">连接企业与求职者，打造高效的招聘求职体验</p>
+            <div class="mt-4">
+                <a href="{{ url_for('job_list') }}" class="btn btn-light btn-lg me-3">浏览职位</a>
+                {% if not session.get('user_id') %}
+                    <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg">立即注册</a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-md-4 text-center">
+            <div class="display-1">👥</div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-5">
+    <div class="col-md-4">
+        <div class="card h-100 text-center p-4">
+            <div class="display-4 mb-3">🏢</div>
+            <h3>企业用户</h3>
+            <p class="text-muted">发布职位信息，筛选优秀简历，快速找到合适的人才</p>
+            <a href="{{ url_for('register') }}" class="btn btn-outline-primary">企业注册</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 text-center p-4">
+            <div class="display-4 mb-3">👤</div>
+            <h3>求职者</h3>
+            <p class="text-muted">上传简历，搜索职位，投递申请，找到理想工作</p>
+            <a href="{{ url_for('register') }}" class="btn btn-outline-primary">求职者注册</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 text-center p-4">
+            <div class="display-4 mb-3">🔔</div>
+            <h3>实时通知</h3>
+            <p class="text-muted">投递状态实时更新，重要消息及时提醒</p>
+            <a href="{{ url_for('job_list') }}" class="btn btn-outline-primary">开始探索</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-white py-3">
+        <h3 class="mb-0">最新职位</h3>
+    </div>
+    <div class="card-body">
+        {% if jobs %}
+            <div class="row g-4">
+                {% for job in jobs %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card job-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ job.title }}</h5>
+                                <h6 class="card-subtitle text-muted mb-2">{{ job.company_name }}</h6>
+                                <div class="mb-2">
+                                    {% if job.salary_range %}
+                                        <span class="badge bg-success me-1">{{ job.salary_range }}</span>
+                                    {% endif %}
+                                    {% if job.location %}
+                                        <span class="badge bg-secondary me-1">📍 {{ job.location }}</span>
+                                    {% endif %}
+                                    {% if job.job_type %}
+                                        <span class="badge bg-info me-1">
+                                            {% if job.job_type == 'fulltime' %}全职
+                                            {% elif job.job_type == 'parttime' %}兼职
+                                            {% elif job.job_type == 'internship' %}实习
+                                            {% else %}{{ job.job_type }}{% endif %}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <p class="card-text small text-muted">
+                                    {{ job.description[:100] }}{% if job.description|length > 100 %}...{% endif %}
+                                </p>
+                                <a href="{{ url_for('job_detail', job_id=job.id) }}" class="btn btn-primary btn-sm">查看详情</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="text-center mt-4">
+                <a href="{{ url_for('job_list') }}" class="btn btn-outline-primary">查看更多职位</a>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <div class="display-4 text-muted mb-3">📭</div>
+                <p class="text-muted">暂无职位信息</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

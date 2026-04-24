@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}注册 - 招聘求职平台{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white py-3">
+                <h3 class="mb-0 text-center">用户注册</h3>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" id="registerForm">
+                    <div class="mb-3">
+                        <label for="user_type" class="form-label">注册类型</label>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="user_type" id="type_jobseeker" value="jobseeker" checked>
+                                    <label class="form-check-label" for="type_jobseeker">
+                                        <div class="text-center">
+                                            <div class="display-4">👤</div>
+                                            <div>求职者</div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="user_type" id="type_company" value="company">
+                                    <label class="form-check-label" for="type_company">
+                                        <div class="text-center">
+                                            <div class="display-4">🏢</div>
+                                            <div>企业</div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">邮箱 <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码 <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">确认密码 <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="confirm_password" required>
+                    </div>
+
+                    <div id="jobseeker_fields">
+                        <div class="mb-3">
+                            <label for="full_name" class="form-label">姓名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="full_name" name="full_name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">电话 <span class="text-danger">*</span></label>
+                            <input type="tel" class="form-control" id="phone" name="phone">
+                        </div>
+                    </div>
+
+                    <div id="company_fields" style="display: none;">
+                        <div class="mb-3">
+                            <label for="company_name" class="form-label">公司名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="company_name" name="company_name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="company_description" class="form-label">公司简介</label>
+                            <textarea class="form-control" id="company_description" name="company_description" rows="3"></textarea>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">注册</button>
+                </form>
+                <div class="text-center mt-3">
+                    <p class="mb-0">已有账号？<a href="{{ url_for('login') }}">立即登录</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const typeJobseeker = document.getElementById('type_jobseeker');
+    const typeCompany = document.getElementById('type_company');
+    const jobseekerFields = document.getElementById('jobseeker_fields');
+    const companyFields = document.getElementById('company_fields');
+    
+    function toggleFields() {
+        if (typeJobseeker.checked) {
+            jobseekerFields.style.display = 'block';
+            companyFields.style.display = 'none';
+        } else {
+            jobseekerFields.style.display = 'none';
+            companyFields.style.display = 'block';
+        }
+    }
+    
+    typeJobseeker.addEventListener('change', toggleFields);
+    typeCompany.addEventListener('change', toggleFields);
+    
+    // 表单验证
+    document.getElementById('registerForm').addEventListener('submit', function(e) {
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm_password').value;
+        
+        if (password !== confirmPassword) {
+            e.preventDefault();
+            alert('两次输入的密码不一致！');
+            return false;
+        }
+        
+        if (password.length < 6) {
+            e.preventDefault();
+            alert('密码长度至少为6位！');
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

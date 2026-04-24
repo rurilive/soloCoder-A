@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}企业中心 - 招聘求职平台{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">企业中心</h5>
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="#jobs" class="list-group-item list-group-item-action active" data-bs-toggle="list">
+                    📋 我的职位
+                </a>
+                <a href="#applications" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    📄 收到的简历
+                </a>
+                <a href="{{ url_for('create_job') }}" class="list-group-item list-group-item-action">
+                    ➕ 发布新职位
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-9">
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="jobs">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">我的职位</h5>
+                        <a href="{{ url_for('create_job') }}" class="btn btn-primary btn-sm">发布新职位</a>
+                    </div>
+                    <div class="card-body">
+                        {% if jobs %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>职位名称</th>
+                                            <th>薪资范围</th>
+                                            <th>工作地点</th>
+                                            <th>状态</th>
+                                            <th>发布时间</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for job in jobs %}
+                                            <tr>
+                                                <td>
+                                                    <a href="{{ url_for('job_detail', job_id=job.id) }}">{{ job.title }}</a>
+                                                </td>
+                                                <td>{{ job.salary_range or '-' }}</td>
+                                                <td>{{ job.location or '-' }}</td>
+                                                <td>
+                                                    {% if job.is_active %}
+                                                        <span class="badge bg-success">招聘中</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">已关闭</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ job.created_at[:10] }}</td>
+                                                <td>
+                                                    <a href="{{ url_for('edit_job', job_id=job.id) }}" class="btn btn-sm btn-outline-primary">编辑</a>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <div class="display-4 text-muted mb-3">📭</div>
+                                <p class="text-muted">您还没有发布任何职位</p>
+                                <a href="{{ url_for('create_job') }}" class="btn btn-primary">发布第一个职位</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="applications">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">收到的简历</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if applications %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>职位名称</th>
+                                            <th>求职者</th>
+                                            <th>投递时间</th>
+                                            <th>状态</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for app in applications %}
+                                            <tr>
+                                                <td>{{ app.job_title }}</td>
+                                                <td>{{ app.applicant_name }}</td>
+                                                <td>{{ app.applied_at[:19] }}</td>
+                                                <td>
+                                                    {% set status_classes = {
+                                                        'pending': 'bg-warning',
+                                                        'reviewed': 'bg-info',
+                                                        'interview': 'bg-primary',
+                                                        'accepted': 'bg-success',
+                                                        'rejected': 'bg-danger'
+                                                    } %}
+                                                    {% set status_texts = {
+                                                        'pending': '待处理',
+                                                        'reviewed': '已查看',
+                                                        'interview': '邀请面试',
+                                                        'accepted': '已录用',
+                                                        'rejected': '已拒绝'
+                                                    } %}
+                                                    <span class="badge {{ status_classes.get(app.status, 'bg-secondary') }} status-badge">
+                                                        {{ status_texts.get(app.status, app.status) }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {% if app.resume_id %}
+                                                        <a href="{{ url_for('download_resume', resume_id=app.resume_id) }}" class="btn btn-sm btn-outline-success mb-1">下载简历</a>
+                                                    {% endif %}
+                                                    <form method="POST" action="{{ url_for('update_application_status', app_id=app.id) }}" class="d-inline">
+                                                        <select name="status" class="form-select form-select-sm d-inline w-auto" onchange="this.form.submit()">
+                                                            <option value="pending" {% if app.status == 'pending' %}selected{% endif %}>待处理</option>
+                                                            <option value="reviewed" {% if app.status == 'reviewed' %}selected{% endif %}>已查看</option>
+                                                            <option value="interview" {% if app.status == 'interview' %}selected{% endif %}>邀请面试</option>
+                                                            <option value="accepted" {% if app.status == 'accepted' %}selected{% endif %}>已录用</option>
+                                                            <option value="rejected" {% if app.status == 'rejected' %}selected{% endif %}>已拒绝</option>
+                                                        </select>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <div class="display-4 text-muted mb-3">📭</div>
+                                <p class="text-muted">暂无收到的简历</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
