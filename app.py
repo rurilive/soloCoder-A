@@ -626,6 +626,47 @@ def update_application_status(app_id):
     return redirect(url_for('company_dashboard'))
 
 
+@app.route('/application/<int:app_id>/delete', methods=['POST'])
+def delete_application(app_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    
+    application = conn.execute('''
+        SELECT applications.*, jobs.company_id
+        FROM applications
+        JOIN jobs ON applications.job_id = jobs.id
+        WHERE applications.id = ?
+    ''', (app_id,)).fetchone()
+    
+    if application is None:
+        flash('申请记录不存在', 'danger')
+        if session.get('user_type') == 'company':
+            return redirect(url_for('company_dashboard'))
+        else:
+            return redirect(url_for('jobseeker_dashboard'))
+    
+    if session['user_type'] == 'company':
+        if application['company_id'] != session['user_id']:
+            flash('无权删除此申请记录', 'danger')
+            return redirect(url_for('company_dashboard'))
+    else:
+        if application['jobseeker_id'] != session['user_id']:
+            flash('无权删除此申请记录', 'danger')
+            return redirect(url_for('jobseeker_dashboard'))
+    
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM applications WHERE id = ?', (app_id,))
+    conn.commit()
+    
+    flash('申请记录已删除', 'success')
+    if session['user_type'] == 'company':
+        return redirect(url_for('company_dashboard'))
+    else:
+        return redirect(url_for('jobseeker_dashboard'))
+
+
 @app.route('/resume/download/<int:resume_id>')
 def download_resume(resume_id):
     if 'user_id' not in session:

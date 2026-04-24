@@ -41,6 +41,7 @@
                                             <th>工作地点</th>
                                             <th>投递时间</th>
                                             <th>状态</th>
+                                            <th>操作</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -70,6 +71,11 @@
                                                     <span class="badge {{ status_classes.get(app.status, 'bg-secondary') }} status-badge">
                                                         {{ status_texts.get(app.status, app.status) }}
                                                     </span>
+                                                </td>
+                                                <td>
+                                                    <form method="POST" action="{{ url_for('delete_application', app_id=app.id) }}" class="d-inline" onsubmit="return confirm('确定要删除这条投递记录吗？');">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+                                                    </form>
                                                 </td>
                                             </tr>
                                         {% endfor %}

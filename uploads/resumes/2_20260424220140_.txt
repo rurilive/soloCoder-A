@@ -1,0 +1,1 @@
+技术栈使用python uv fastapi sqlite jinja2 绑定随机端口。
