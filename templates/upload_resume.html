@@ -24,27 +24,38 @@
                     
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
-                            {% if resume %}更新简历{% else %}上传简历{% endif %}
+                            上传简历
                         </button>
                         <a href="{{ url_for('jobseeker_dashboard') }}" class="btn btn-secondary">取消</a>
                     </div>
                 </form>
                 
-                {% if resume %}
+                {% if resumes %}
                     <hr>
                     <div class="mt-4">
-                        <h6>当前简历</h6>
-                        <div class="alert alert-secondary">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span class="me-2">📄</span>
-                                    <strong>{{ resume.original_name }}</strong>
-                                    <span class="text-muted small ms-2">上传于 {{ resume.created_at[:19] }}</span>
+                        <h6>我的简历 ({{ resumes|length }} 份)</h6>
+                        <div class="list-group">
+                            {% for resume in resumes %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="me-2">📄</span>
+                                            <strong>{{ resume.original_name }}</strong>
+                                            <span class="text-muted small ms-2">上传于 {{ resume.created_at[:19] }}</span>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <a href="{{ url_for('download_resume', resume_id=resume.id) }}" class="btn btn-sm btn-outline-primary">
+                                                下载
+                                            </a>
+                                            <form method="POST" action="{{ url_for('delete_resume', resume_id=resume.id) }}" class="d-inline" onsubmit="return confirm('确定要删除这份简历吗？');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    删除
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
                                 </div>
-                                <a href="{{ url_for('download_resume', resume_id=resume.id) }}" class="btn btn-sm btn-outline-primary">
-                                    下载
-                                </a>
-                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                 {% endif %}

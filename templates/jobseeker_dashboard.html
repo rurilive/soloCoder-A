@@ -13,8 +13,8 @@
                 <a href="#applications" class="list-group-item list-group-item-action active" data-bs-toggle="list">
                     📋 我的投递
                 </a>
-                <a href="#resume" class="list-group-item list-group-item-action" data-bs-toggle="list">
-                    📄 我的简历
+                <a href="#resumes" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    📄 我的简历 ({{ resumes|length }})
                 </a>
                 <a href="{{ url_for('upload_resume') }}" class="list-group-item list-group-item-action">
                     ⬆️ 上传简历
@@ -93,34 +93,40 @@
                 </div>
             </div>
             
-            <div class="tab-pane fade" id="resume">
+            <div class="tab-pane fade" id="resumes">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">我的简历</h5>
+                        <h5 class="mb-0">我的简历 ({{ resumes|length }} 份)</h5>
                         <a href="{{ url_for('upload_resume') }}" class="btn btn-primary btn-sm">
-                            {% if resume %}更新简历{% else %}上传简历{% endif %}
+                            + 上传简历
                         </a>
                     </div>
                     <div class="card-body">
-                        {% if resume %}
-                            <div class="alert alert-info">
-                                <div class="d-flex align-items-center">
-                                    <div class="me-3">
-                                        <span class="display-4">📄</span>
+                        {% if resumes %}
+                            <div class="list-group">
+                                {% for resume in resumes %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-3">
+                                                <span class="display-4">📄</span>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">{{ resume.original_name }}</h6>
+                                                <p class="text-muted small mb-0">上传时间: {{ resume.created_at[:19] }}</p>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <a href="{{ url_for('download_resume', resume_id=resume.id) }}" class="btn btn-sm btn-success">
+                                                    下载
+                                                </a>
+                                                <form method="POST" action="{{ url_for('delete_resume', resume_id=resume.id) }}" class="d-inline" onsubmit="return confirm('确定要删除这份简历吗？');">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        删除
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h6 class="mb-1">{{ resume.original_name }}</h6>
-                                        <p class="text-muted small mb-0">上传时间: {{ resume.created_at[:19] }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="d-flex gap-2">
-                                <a href="{{ url_for('download_resume', resume_id=resume.id) }}" class="btn btn-success">
-                                    下载简历
-                                </a>
-                                <a href="{{ url_for('upload_resume') }}" class="btn btn-secondary">
-                                    更新简历
-                                </a>
+                                {% endfor %}
                             </div>
                         {% else %}
                             <div class="text-center py-5">

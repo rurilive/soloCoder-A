@@ -397,20 +397,22 @@ def jobseeker_dashboard():
         ORDER BY applications.applied_at DESC
     ''', (session['user_id'],)).fetchall()
     
-    # 获取用户的简历
-    resume = conn.execute('SELECT * FROM resumes WHERE user_id = ?', (session['user_id'],)).fetchone()
+    # 获取用户的所有简历
+    resumes = conn.execute('SELECT * FROM resumes WHERE user_id = ? ORDER BY created_at DESC', (session['user_id'],)).fetchall()
     
     # 获取未读通知数量
     unread_count = conn.execute('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0', (session['user_id'],)).fetchone()[0]
     
     
-    return render_template('jobseeker_dashboard.html', applications=applications, resume=resume, unread_count=unread_count)
+    return render_template('jobseeker_dashboard.html', applications=applications, resumes=resumes, unread_count=unread_count)
 
 
 @app.route('/jobseeker/resume/upload', methods=['GET', 'POST'])
 def upload_resume():
     if 'user_id' not in session or session['user_type'] != 'jobseeker':
         return redirect(url_for('login'))
+    
+    conn = get_db_connection()
     
     if request.method == 'POST':
         if 'resume' not in request.files:
@@ -429,39 +431,59 @@ def upload_resume():
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
             
-            conn = get_db_connection()
             cursor = conn.cursor()
             
-            # 检查是否已有简历
-            existing_resume = cursor.execute('SELECT id FROM resumes WHERE user_id = ?', (session['user_id'],)).fetchone()
-            
-            if existing_resume:
-                # 更新现有简历
-                old_resume = cursor.execute('SELECT * FROM resumes WHERE user_id = ?', (session['user_id'],)).fetchone()
-                # 删除旧文件
-                if os.path.exists(old_resume['file_path']):
-                    os.remove(old_resume['file_path'])
-                
-                cursor.execute('''
-                    UPDATE resumes SET filename = ?, original_name = ?, file_path = ?
-                    WHERE user_id = ?
-                ''', (filename, original_name, file_path, session['user_id']))
-            else:
-                # 创建新简历
-                cursor.execute('''
-                    INSERT INTO resumes (user_id, filename, original_name, file_path)
-                    VALUES (?, ?, ?, ?)
-                ''', (session['user_id'], filename, original_name, file_path))
+            # 创建新简历（支持多份）
+            cursor.execute('''
+                INSERT INTO resumes (user_id, filename, original_name, file_path)
+                VALUES (?, ?, ?, ?)
+            ''', (session['user_id'], filename, original_name, file_path))
             
             conn.commit()
-            
             
             flash('简历上传成功！', 'success')
             return redirect(url_for('jobseeker_dashboard'))
         else:
             flash('不支持的文件格式，请上传 pdf, doc, docx 或 txt 文件', 'danger')
     
-    return render_template('upload_resume.html')
+    # 获取用户所有简历
+    resumes = conn.execute('SELECT * FROM resumes WHERE user_id = ? ORDER BY created_at DESC', (session['user_id'],)).fetchall()
+    
+    return render_template('upload_resume.html', resumes=resumes)
+
+
+@app.route('/jobseeker/resume/<int:resume_id>/delete', methods=['POST'])
+def delete_resume(resume_id):
+    if 'user_id' not in session or session['user_type'] != 'jobseeker':
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    
+    # 检查简历是否属于当前用户
+    resume = conn.execute('SELECT * FROM resumes WHERE id = ? AND user_id = ?', (resume_id, session['user_id'])).fetchone()
+    
+    if resume is None:
+        flash('简历不存在或无权删除', 'danger')
+        return redirect(url_for('jobseeker_dashboard'))
+    
+    # 检查该简历是否有未删除的投递记录
+    applications = conn.execute('SELECT id FROM applications WHERE resume_id = ?', (resume_id,)).fetchone()
+    
+    if applications:
+        flash('该简历已有投递记录，无法删除', 'warning')
+        return redirect(url_for('jobseeker_dashboard'))
+    
+    # 删除文件
+    if os.path.exists(resume['file_path']):
+        os.remove(resume['file_path'])
+    
+    # 删除数据库记录
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM resumes WHERE id = ?', (resume_id,))
+    conn.commit()
+    
+    flash('简历已删除', 'success')
+    return redirect(url_for('jobseeker_dashboard'))
 
 
 @app.route('/job/<int:job_id>/apply', methods=['GET', 'POST'])
@@ -478,30 +500,59 @@ def apply_job(job_id):
         flash('职位不存在或已关闭', 'danger')
         return redirect(url_for('index'))
     
-    # 检查是否有简历
-    resume = conn.execute('SELECT * FROM resumes WHERE user_id = ?', (session['user_id'],)).fetchone()
+    # 获取用户的所有简历
+    resumes = conn.execute('SELECT * FROM resumes WHERE user_id = ? ORDER BY created_at DESC', (session['user_id'],)).fetchall()
     
-    if resume is None:
+    if not resumes:
         
         flash('请先上传简历', 'warning')
         return redirect(url_for('upload_resume'))
     
-    # 检查是否已使用同一份简历投递过该职位
-    existing_application = conn.execute('''
-        SELECT id FROM applications WHERE job_id = ? AND jobseeker_id = ? AND resume_id = ?
-    ''', (job_id, session['user_id'], resume['id'])).fetchone()
+    # 获取用户已使用哪些简历投递过该职位
+    applied_resume_ids = []
+    applied_resumes = conn.execute('''
+        SELECT resume_id FROM applications WHERE job_id = ? AND jobseeker_id = ?
+    ''', (job_id, session['user_id'])).fetchall()
     
-    if existing_application:
-        
-        flash('您已经使用这份简历投递过这个职位了', 'warning')
-        return redirect(url_for('job_detail', job_id=job_id))
+    for ar in applied_resumes:
+        applied_resume_ids.append(ar['resume_id'])
+    
+    # 检查是否所有简历都已投递过
+    all_applied = len(applied_resume_ids) and all(r['id'] in applied_resume_ids for r in resumes)
     
     if request.method == 'POST':
+        # 获取用户选择的简历ID
+        resume_id = request.form.get('resume_id')
+        
+        if not resume_id:
+            flash('请选择要使用的简历', 'danger')
+            return redirect(request.url)
+        
+        # 检查所选简历是否属于当前用户
+        selected_resume = conn.execute(
+            'SELECT * FROM resumes WHERE id = ? AND user_id = ?', 
+            (resume_id, session['user_id'])
+        ).fetchone()
+        
+        if not selected_resume:
+            flash('所选简历无效', 'danger')
+            return redirect(request.url)
+        
+        # 检查是否已使用该简历投递过该职位
+        existing_application = conn.execute('''
+            SELECT id FROM applications WHERE job_id = ? AND jobseeker_id = ? AND resume_id = ?
+        ''', (job_id, session['user_id'], resume_id)).fetchone()
+        
+        if existing_application:
+            
+            flash('您已经使用这份简历投递过这个职位了', 'warning')
+            return redirect(url_for('job_detail', job_id=job_id))
+        
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO applications (job_id, jobseeker_id, resume_id)
             VALUES (?, ?, ?)
-        ''', (job_id, session['user_id'], resume['id']))
+        ''', (job_id, session['user_id'], resume_id))
         
         # 给企业发送通知
         create_notification(job['company_id'], '新的简历投递', f'您发布的职位 "{job["title"]}" 收到了新的简历投递', conn)
@@ -515,7 +566,7 @@ def apply_job(job_id):
         return redirect(url_for('jobseeker_dashboard'))
     
     
-    return render_template('apply_job.html', job=job, resume=resume)
+    return render_template('apply_job.html', job=job, resumes=resumes, applied_resume_ids=applied_resume_ids, all_applied=all_applied)
 
 
 @app.route('/jobs')
