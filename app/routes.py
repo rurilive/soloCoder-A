@@ -39,13 +39,6 @@ PRESETS = [
         "type": "2d",
         "color": "#f9ca24",
         "description": "z = x² - y²"
-    },
-    {
-        "name": "球体",
-        "expression": "x^2 + y^2 + z^2",
-        "type": "3d",
-        "color": "#6c5ce7",
-        "description": "x² + y² + z² = 常数"
     }
 ]
 
@@ -150,7 +143,7 @@ async def post_render(request: RenderRequest):
     parsed_functions = []
     expression_types = []
     
-    for func_input in request.functions:
+    for i, func_input in enumerate(request.functions):
         try:
             parsed = _cached_parse_expression(func_input.expression)
             parsed_functions.append({
@@ -158,7 +151,8 @@ async def post_render(request: RenderRequest):
                 'type': parsed['type'],
                 'expression': func_input.expression,
                 'name': func_input.name,
-                'color': func_input.color
+                'color': func_input.color,
+                'index': i
             })
             expression_types.append(parsed['type'])
         except ParseError as e:
@@ -166,16 +160,19 @@ async def post_render(request: RenderRequest):
                 status_code=400,
                 detail={
                     "success": False,
-                    "error": f"表达式解析错误: {str(e)}"
+                    "error": f"函数 {i+1} 解析错误: {str(e)}"
                 }
             )
     
-    if '3d' in expression_types:
+    functions_3d = [f for f in parsed_functions if f['type'] == '3d']
+    if functions_3d:
+        exprs = [f"'{f['expression']}'" for f in functions_3d]
+        indices = [str(f['index'] + 1) for f in functions_3d]
         raise HTTPException(
             status_code=400,
             detail={
                 "success": False,
-                "error": "3D 函数暂不支持"
+                "error": f"3D 函数暂不支持。函数 {', '.join(indices)}: {', '.join(exprs)}"
             }
         )
     

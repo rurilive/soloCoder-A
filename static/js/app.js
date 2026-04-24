@@ -25,12 +25,6 @@
             expression: "x^2 - y^2",
             color: "#f9ca24",
             description: "z = x² - y²"
-        },
-        {
-            name: "球体",
-            expression: "x^2 + y^2 + z^2",
-            color: "#6c5ce7",
-            description: "x² + y² + z² = 常数"
         }
     ];
 
