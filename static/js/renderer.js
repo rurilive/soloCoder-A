@@ -19,6 +19,57 @@
     const DEFAULT_CAMERA_POSITION = { x: 10, y: 10, z: 10 };
     const DEFAULT_TARGET = { x: 0, y: 0, z: 0 };
 
+    const THEMES = {
+        dark: {
+            background: 0x2d2d2d,
+            gridPrimary: 0x444444,
+            gridSecondary: 0x333333,
+            axesX: 0xff4444,
+            axesY: 0x44ff44,
+            axesZ: 0x4444ff
+        },
+        light: {
+            background: 0xf0f0f0,
+            gridPrimary: 0xcccccc,
+            gridSecondary: 0xdddddd,
+            axesX: 0xcc0000,
+            axesY: 0x00aa00,
+            axesZ: 0x0000cc
+        },
+        blue: {
+            background: 0x0f172a,
+            gridPrimary: 0x1e3a5f,
+            gridSecondary: 0x1e293b,
+            axesX: 0xff6b6b,
+            axesY: 0x69db7c,
+            axesZ: 0x4dabf7
+        },
+        matrix: {
+            background: 0x000000,
+            gridPrimary: 0x003300,
+            gridSecondary: 0x001a00,
+            axesX: 0xff0000,
+            axesY: 0x00ff00,
+            axesZ: 0x00aa00
+        },
+        sunset: {
+            background: 0x1a0a0a,
+            gridPrimary: 0x4a2020,
+            gridSecondary: 0x2d1a1a,
+            axesX: 0xff6b6b,
+            axesY: 0x95e1d3,
+            axesZ: 0xeec0da
+        }
+    };
+
+    let currentTheme = 'dark';
+
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
+    let currentFps = 60;
+    let renderTimeMs = 0;
+    let lastRenderStart = 0;
+
     function init(canvasId, containerId) {
         canvasElement = document.getElementById(canvasId);
         containerElement = document.getElementById(containerId);
@@ -45,7 +96,35 @@
 
     function initScene() {
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x2d2d2d);
+        applyTheme(currentTheme);
+    }
+
+    function applyTheme(themeName) {
+        if (!scene) return;
+        
+        currentTheme = themeName;
+        const theme = THEMES[themeName] || THEMES.dark;
+        
+        scene.background = new THREE.Color(theme.background);
+        
+        if (gridHelper) {
+            scene.remove(gridHelper);
+            gridHelper.geometry.dispose();
+            gridHelper.material.dispose();
+        }
+        
+        gridHelper = new THREE.GridHelper(20, 20, theme.gridPrimary, theme.gridSecondary);
+        gridHelper.rotation.x = Math.PI / 2;
+        scene.add(gridHelper);
+        
+        if (axesHelper) {
+            scene.remove(axesHelper);
+            axesHelper.geometry.dispose();
+            axesHelper.material.dispose();
+        }
+        
+        axesHelper = new THREE.AxesHelper(5);
+        scene.add(axesHelper);
     }
 
     function initCamera() {
@@ -204,7 +283,8 @@
     }
 
     function initHelpers() {
-        gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x333333);
+        const theme = THEMES[currentTheme];
+        gridHelper = new THREE.GridHelper(20, 20, theme.gridPrimary, theme.gridSecondary);
         gridHelper.rotation.x = Math.PI / 2;
         scene.add(gridHelper);
         
@@ -227,12 +307,24 @@
     function animate() {
         animationId = requestAnimationFrame(animate);
         
+        lastRenderStart = performance.now();
+        
         if (controls && !controls.isFallback) {
             controls.update();
         }
         
         if (renderer && scene && camera) {
             renderer.render(scene, camera);
+        }
+        
+        renderTimeMs = performance.now() - lastRenderStart;
+        
+        frameCount++;
+        const now = performance.now();
+        if (now - lastFpsTime >= 1000) {
+            currentFps = frameCount;
+            frameCount = 0;
+            lastFpsTime = now;
         }
     }
 
@@ -368,6 +460,13 @@
         }
     }
 
+    function getPerformanceData() {
+        return {
+            fps: currentFps,
+            renderTimeMs: renderTimeMs
+        };
+    }
+
     function dispose() {
         if (animationId) {
             cancelAnimationFrame(animationId);
@@ -417,7 +516,9 @@
         getScene: function() { return scene; },
         getCamera: function() { return camera; },
         getRenderer: function() { return renderer; },
-        getControls: function() { return controls; }
+        getControls: function() { return controls; },
+        applyTheme: applyTheme,
+        getPerformanceData: getPerformanceData
     };
 
 })();

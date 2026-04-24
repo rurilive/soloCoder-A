@@ -10,6 +10,15 @@
     <div class="app-container">
         <header class="header">
             <h1>函数可视化工具</h1>
+            <div class="header-right">
+                <select class="theme-select" id="themeSelect">
+                    <option value="dark">🌙 深色主题</option>
+                    <option value="light">☀️ 浅色主题</option>
+                    <option value="blue">🌊 深蓝主题</option>
+                    <option value="matrix">💚 黑客帝国</option>
+                    <option value="sunset">🌅 日落主题</option>
+                </select>
+            </div>
         </header>
         
         <div class="main-content">
@@ -89,6 +98,36 @@
             <main class="viewer-area">
                 <div class="canvas-container" id="canvasContainer">
                     <canvas id="threeCanvas"></canvas>
+                    <button class="perf-toggle-btn" id="perfToggleBtn">
+                        📊 性能
+                    </button>
+                    <div class="performance-panel hidden" id="performancePanel">
+                        <div class="performance-title">📊 性能监控</div>
+                        <div class="performance-item">
+                            <span class="performance-label">FPS:</span>
+                            <span class="performance-value good" id="perfFps">60</span>
+                        </div>
+                        <div class="performance-item">
+                            <span class="performance-label">渲染时间:</span>
+                            <span class="performance-value good" id="perfRender">0.5ms</span>
+                        </div>
+                        <div class="performance-item">
+                            <span class="performance-label">API 请求:</span>
+                            <span class="performance-value good" id="perfApi">-</span>
+                        </div>
+                        <div class="performance-item">
+                            <span class="performance-label">顶点数:</span>
+                            <span class="performance-value" id="perfVertices">0</span>
+                        </div>
+                        <div class="performance-item">
+                            <span class="performance-label">面片数:</span>
+                            <span class="performance-value" id="perfFaces">0</span>
+                        </div>
+                        <div class="performance-bottleneck">
+                            <div class="bottleneck-label">瓶颈分析:</div>
+                            <div class="bottleneck-value" id="perfBottleneck">就绪</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="status-bar" id="statusBar">
                     <span class="status-item">顶点数: <span id="vertexCount">0</span></span>

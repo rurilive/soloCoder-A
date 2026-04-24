@@ -39,7 +39,16 @@
         "#fd79a8", "#00b894", "#e17055", "#0984e3", "#a29bfe"
     ];
 
+    const STORAGE_KEYS = {
+        THEME: 'functionVisualizer_theme'
+    };
+
     let functionCounter = 0;
+    let lastApiTimeMs = null;
+    let totalVertices = 0;
+    let totalFaces = 0;
+    let perfPanelVisible = false;
+    let perfUpdateInterval = null;
 
     const elements = {
         presetsContainer: document.getElementById('presetsContainer'),
@@ -58,10 +67,20 @@
         clearBtn: document.getElementById('clearBtn'),
         vertexCount: document.getElementById('vertexCount'),
         faceCount: document.getElementById('faceCount'),
-        statusText: document.getElementById('statusText')
+        statusText: document.getElementById('statusText'),
+        themeSelect: document.getElementById('themeSelect'),
+        performancePanel: document.getElementById('performancePanel'),
+        perfToggleBtn: document.getElementById('perfToggleBtn'),
+        perfFps: document.getElementById('perfFps'),
+        perfRender: document.getElementById('perfRender'),
+        perfApi: document.getElementById('perfApi'),
+        perfVertices: document.getElementById('perfVertices'),
+        perfFaces: document.getElementById('perfFaces'),
+        perfBottleneck: document.getElementById('perfBottleneck')
     };
 
     function init() {
+        loadTheme();
         renderPresets();
         addFunction();
         bindEvents();
@@ -71,9 +90,37 @@
         }
         
         updateStatus('就绪');
+        
+        perfUpdateInterval = setInterval(updatePerformancePanel, 100);
+    }
+
+    function loadTheme() {
+        const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
+        
+        if (elements.themeSelect) {
+            elements.themeSelect.value = savedTheme;
+        }
+        
+        applyTheme(savedTheme);
+    }
+
+    function saveTheme(theme) {
+        localStorage.setItem(STORAGE_KEYS.THEME, theme);
+    }
+
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        
+        if (window.FunctionRenderer && window.FunctionRenderer.applyTheme) {
+            window.FunctionRenderer.applyTheme(theme);
+        }
+        
+        saveTheme(theme);
     }
 
     function renderPresets() {
+        if (!elements.presetsContainer) return;
+        
         elements.presetsContainer.innerHTML = '';
         
         PRESETS.forEach(preset => {
@@ -151,7 +198,9 @@
             removeFunction(idx);
         });
         
-        elements.functionsContainer.appendChild(functionItem);
+        if (elements.functionsContainer) {
+            elements.functionsContainer.appendChild(functionItem);
+        }
     }
 
     function removeFunction(index) {
@@ -167,7 +216,9 @@
     }
 
     function clearAllFunctions() {
-        elements.functionsContainer.innerHTML = '';
+        if (elements.functionsContainer) {
+            elements.functionsContainer.innerHTML = '';
+        }
         functionCounter = 0;
         addFunction();
     }
@@ -194,17 +245,17 @@
         
         return {
             functions: functions,
-            operation: elements.operationSelect.value,
+            operation: elements.operationSelect ? elements.operationSelect.value : 'none',
             params: {
-                x_min: parseFloat(elements.xMin.value) || -5,
-                x_max: parseFloat(elements.xMax.value) || 5,
-                y_min: parseFloat(elements.yMin.value) || -5,
-                y_max: parseFloat(elements.yMax.value) || 5,
+                x_min: parseFloat(elements.xMin ? elements.xMin.value : -5) || -5,
+                x_max: parseFloat(elements.xMax ? elements.xMax.value : 5) || 5,
+                y_min: parseFloat(elements.yMin ? elements.yMin.value : -5) || -5,
+                y_max: parseFloat(elements.yMax ? elements.yMax.value : 5) || 5,
                 z_min: -5,
                 z_max: 5,
-                resolution: parseInt(elements.resolution.value) || 50,
+                resolution: parseInt(elements.resolution ? elements.resolution.value : 50) || 50,
                 isovalue: 0,
-                epsilon: parseFloat(elements.epsilon.value) || 0.5
+                epsilon: parseFloat(elements.epsilon ? elements.epsilon.value : 0.5) || 0.5
             }
         };
     }
@@ -216,11 +267,127 @@
     }
 
     function updateStats(vertices = 0, faces = 0) {
+        totalVertices = vertices;
+        totalFaces = faces;
+        
         if (elements.vertexCount) {
             elements.vertexCount.textContent = vertices.toLocaleString();
         }
         if (elements.faceCount) {
             elements.faceCount.textContent = faces.toLocaleString();
+        }
+    }
+
+    function updatePerformancePanel() {
+        if (!perfPanelVisible) return;
+        
+        let perfData = { fps: 60, renderTimeMs: 0.5 };
+        if (window.FunctionRenderer && window.FunctionRenderer.getPerformanceData) {
+            perfData = window.FunctionRenderer.getPerformanceData();
+        }
+        
+        const fps = perfData.fps || 60;
+        const renderMs = perfData.renderTimeMs || 0;
+        
+        if (elements.perfFps) {
+            elements.perfFps.textContent = fps;
+            elements.perfFps.className = 'performance-value ' + getFpsClass(fps);
+        }
+        
+        if (elements.perfRender) {
+            elements.perfRender.textContent = renderMs.toFixed(2) + 'ms';
+            elements.perfRender.className = 'performance-value ' + getRenderTimeClass(renderMs);
+        }
+        
+        if (elements.perfApi) {
+            elements.perfApi.textContent = lastApiTimeMs ? lastApiTimeMs.toFixed(1) + 'ms' : '-';
+            elements.perfApi.className = 'performance-value ' + getApiTimeClass(lastApiTimeMs);
+        }
+        
+        if (elements.perfVertices) {
+            elements.perfVertices.textContent = totalVertices.toLocaleString();
+        }
+        
+        if (elements.perfFaces) {
+            elements.perfFaces.textContent = totalFaces.toLocaleString();
+        }
+        
+        if (elements.perfBottleneck) {
+            elements.perfBottleneck.textContent = analyzeBottleneck(fps, renderMs, lastApiTimeMs, totalVertices);
+        }
+    }
+
+    function getFpsClass(fps) {
+        if (fps >= 50) return 'good';
+        if (fps >= 30) return 'warning';
+        return 'bad';
+    }
+
+    function getRenderTimeClass(ms) {
+        if (ms <= 5) return 'good';
+        if (ms <= 16) return 'warning';
+        return 'bad';
+    }
+
+    function getApiTimeClass(ms) {
+        if (ms === null || ms === undefined) return '';
+        if (ms <= 50) return 'good';
+        if (ms <= 200) return 'warning';
+        return 'bad';
+    }
+
+    function analyzeBottleneck(fps, renderMs, apiMs, vertices) {
+        const bottlenecks = [];
+        
+        if (vertices > 50000) {
+            bottlenecks.push('顶点数量过高 (' + vertices.toLocaleString() + ')');
+        } else if (vertices > 20000) {
+            bottlenecks.push('中等顶点数 (' + vertices.toLocaleString() + ')');
+        }
+        
+        if (renderMs > 16) {
+            bottlenecks.push('GPU渲染慢 (' + renderMs.toFixed(1) + 'ms)');
+        } else if (renderMs > 5) {
+            bottlenecks.push('GPU渲染正常');
+        }
+        
+        if (apiMs > 200) {
+            bottlenecks.push('后端计算慢 (' + apiMs.toFixed(0) + 'ms)');
+        } else if (apiMs > 50) {
+            bottlenecks.push('后端正常');
+        }
+        
+        if (fps < 30) {
+            bottlenecks.push('帧率过低 (' + fps + ' FPS)');
+        } else if (fps < 50) {
+            bottlenecks.push('帧率中等 (' + fps + ' FPS)');
+        }
+        
+        if (bottlenecks.length === 0) {
+            if (vertices === 0) {
+                return '无模型加载';
+            }
+            return '性能良好';
+        }
+        
+        return bottlenecks[0];
+    }
+
+    function togglePerformancePanel() {
+        perfPanelVisible = !perfPanelVisible;
+        
+        if (elements.performancePanel) {
+            if (perfPanelVisible) {
+                elements.performancePanel.classList.remove('hidden');
+                if (elements.perfToggleBtn) {
+                    elements.perfToggleBtn.textContent = '✕ 关闭';
+                }
+            } else {
+                elements.performancePanel.classList.add('hidden');
+                if (elements.perfToggleBtn) {
+                    elements.perfToggleBtn.textContent = '📊 性能';
+                }
+            }
         }
     }
 
@@ -234,6 +401,8 @@
         
         updateStatus('生成中...');
         
+        const apiStartTime = performance.now();
+        
         try {
             const response = await fetch('/api/render', {
                 method: 'POST',
@@ -243,11 +412,13 @@
                 body: JSON.stringify(formData)
             });
             
+            lastApiTimeMs = performance.now() - apiStartTime;
+            
             const result = await response.json();
             
             if (result.success) {
                 renderSurfaces(result.data);
-                updateStatus('生成完成');
+                updateStatus('生成完成 (' + lastApiTimeMs.toFixed(0) + 'ms)');
             } else {
                 const errorMsg = result.error || '生成失败';
                 updateStatus('错误: ' + errorMsg);
@@ -286,17 +457,39 @@
     }
 
     function bindEvents() {
-        elements.addFunctionBtn.addEventListener('click', function() {
-            addFunction();
-        });
+        if (elements.addFunctionBtn) {
+            elements.addFunctionBtn.addEventListener('click', function() {
+                addFunction();
+            });
+        }
         
-        elements.resolution.addEventListener('input', function() {
-            elements.resolutionValue.textContent = this.value;
-        });
+        if (elements.resolution) {
+            elements.resolution.addEventListener('input', function() {
+                if (elements.resolutionValue) {
+                    elements.resolutionValue.textContent = this.value;
+                }
+            });
+        }
         
-        elements.generateBtn.addEventListener('click', generate);
-        elements.resetViewBtn.addEventListener('click', resetView);
-        elements.clearBtn.addEventListener('click', clearAllFunctions);
+        if (elements.generateBtn) {
+            elements.generateBtn.addEventListener('click', generate);
+        }
+        if (elements.resetViewBtn) {
+            elements.resetViewBtn.addEventListener('click', resetView);
+        }
+        if (elements.clearBtn) {
+            elements.clearBtn.addEventListener('click', clearAllFunctions);
+        }
+        
+        if (elements.themeSelect) {
+            elements.themeSelect.addEventListener('change', function() {
+                applyTheme(this.value);
+            });
+        }
+        
+        if (elements.perfToggleBtn) {
+            elements.perfToggleBtn.addEventListener('click', togglePerformancePanel);
+        }
     }
 
     window.App = {
@@ -308,7 +501,10 @@
         generate: generate,
         resetView: resetView,
         updateStatus: updateStatus,
-        updateStats: updateStats
+        updateStats: updateStats,
+        applyTheme: applyTheme,
+        togglePerformancePanel: togglePerformancePanel,
+        getLastApiTime: function() { return lastApiTimeMs; }
     };
 
     if (document.readyState === 'loading') {
