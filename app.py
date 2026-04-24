@@ -31,14 +31,13 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 用户表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             email TEXT NOT NULL,
-            user_type TEXT NOT NULL,  # 'company' or 'jobseeker'
+            user_type TEXT NOT NULL,
             company_name TEXT,
             company_description TEXT,
             full_name TEXT,
@@ -47,7 +46,6 @@ def init_db():
         )
     ''')
     
-    # 职位表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS jobs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,15 +55,14 @@ def init_db():
             requirements TEXT NOT NULL,
             salary_range TEXT,
             location TEXT,
-            job_type TEXT,  # 'fulltime', 'parttime', 'internship'
-            experience_level TEXT,  # 'entry', 'mid', 'senior'
+            job_type TEXT,
+            experience_level TEXT,
             is_active INTEGER DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (company_id) REFERENCES users (id)
         )
     ''')
     
-    # 简历表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS resumes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,14 +75,13 @@ def init_db():
         )
     ''')
     
-    # 投递记录表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS applications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             job_id INTEGER NOT NULL,
             jobseeker_id INTEGER NOT NULL,
             resume_id INTEGER,
-            status TEXT DEFAULT 'pending',  # 'pending', 'reviewed', 'interview', 'accepted', 'rejected'
+            status TEXT DEFAULT 'pending',
             applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (job_id) REFERENCES jobs (id),
             FOREIGN KEY (jobseeker_id) REFERENCES users (id),
@@ -93,7 +89,6 @@ def init_db():
         )
     ''')
     
-    # 消息通知表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS notifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -620,4 +615,4 @@ def download_resume(resume_id):
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5002)
