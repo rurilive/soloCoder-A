@@ -22,26 +22,40 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 
 def get_db_connection():
-    conn = sqlite3.connect('job_recruitment.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+    from flask import g
+    if 'db' not in g:
+        g.db = sqlite3.connect('job_recruitment.db', timeout=20.0)
+        g.db.row_factory = sqlite3.Row
+        g.db.execute('PRAGMA journal_mode=WAL')
+        g.db.execute('PRAGMA busy_timeout=30000')
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db_connection(exception=None):
+    from flask import g
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
 
 
 @app.context_processor
 def inject_unread_count():
     if 'user_id' in session:
-        conn = get_db_connection()
-        unread_count = conn.execute(
-            'SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0',
-            (session['user_id'],)
-        ).fetchone()[0]
-        conn.close()
-        return {'unread_count': unread_count}
+        try:
+            conn = get_db_connection()
+            unread_count = conn.execute(
+                'SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0',
+                (session['user_id'],)
+            ).fetchone()[0]
+            return {'unread_count': unread_count}
+        except:
+            return {'unread_count': 0}
     return {'unread_count': 0}
 
 
 def init_db():
-    conn = get_db_connection()
+    conn = sqlite3.connect('job_recruitment.db')
     cursor = conn.cursor()
     
     cursor.execute('''
@@ -123,15 +137,21 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 
-def create_notification(user_id, title, message):
-    conn = get_db_connection()
+def create_notification(user_id, title, message, conn=None):
+    if conn is None:
+        conn = get_db_connection()
+        should_commit = True
+    else:
+        should_commit = False
+    
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO notifications (user_id, title, message)
         VALUES (?, ?, ?)
     ''', (user_id, title, message))
-    conn.commit()
-    conn.close()
+    
+    if should_commit:
+        conn.commit()
 
 
 @app.route('/')
@@ -145,7 +165,7 @@ def index():
         ORDER BY jobs.created_at DESC 
         LIMIT 10
     ''').fetchall()
-    conn.close()
+    
     return render_template('index.html', jobs=jobs)
 
 
@@ -164,7 +184,7 @@ def register():
         existing_user = cursor.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
         if existing_user:
             flash('用户名已存在，请选择其他用户名', 'danger')
-            conn.close()
+            
             return redirect(url_for('register'))
         
         hashed_password = generate_password_hash(password)
@@ -185,7 +205,7 @@ def register():
             ''', (username, hashed_password, email, user_type, full_name, phone))
         
         conn.commit()
-        conn.close()
+        
         
         flash('注册成功！请登录', 'success')
         return redirect(url_for('login'))
@@ -201,7 +221,7 @@ def login():
         
         conn = get_db_connection()
         user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
-        conn.close()
+        
         
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
@@ -246,7 +266,7 @@ def company_dashboard():
     
     # 获取未读通知数量
     unread_count = conn.execute('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0', (session['user_id'],)).fetchone()[0]
-    conn.close()
+    
     
     return render_template('company_dashboard.html', jobs=jobs, applications=applications, unread_count=unread_count)
 
@@ -272,7 +292,7 @@ def create_job():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (title, session['user_id'], description, requirements, salary_range, location, job_type, experience_level))
         conn.commit()
-        conn.close()
+        
         
         flash('职位发布成功！', 'success')
         return redirect(url_for('company_dashboard'))
@@ -289,7 +309,7 @@ def job_detail(job_id):
         JOIN users ON jobs.company_id = users.id
         WHERE jobs.id = ?
     ''', (job_id,)).fetchone()
-    conn.close()
+    
     
     if job is None:
         flash('职位不存在', 'danger')
@@ -307,7 +327,7 @@ def edit_job(job_id):
     job = conn.execute('SELECT * FROM jobs WHERE id = ? AND company_id = ?', (job_id, session['user_id'])).fetchone()
     
     if job is None:
-        conn.close()
+        
         flash('职位不存在或您没有权限编辑', 'danger')
         return redirect(url_for('company_dashboard'))
     
@@ -328,12 +348,12 @@ def edit_job(job_id):
             WHERE id = ?
         ''', (title, description, requirements, salary_range, location, job_type, experience_level, is_active, job_id))
         conn.commit()
-        conn.close()
+        
         
         flash('职位更新成功！', 'success')
         return redirect(url_for('company_dashboard'))
     
-    conn.close()
+    
     return render_template('edit_job.html', job=job)
 
 
@@ -359,7 +379,7 @@ def jobseeker_dashboard():
     
     # 获取未读通知数量
     unread_count = conn.execute('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0', (session['user_id'],)).fetchone()[0]
-    conn.close()
+    
     
     return render_template('jobseeker_dashboard.html', applications=applications, resume=resume, unread_count=unread_count)
 
@@ -411,7 +431,7 @@ def upload_resume():
                 ''', (session['user_id'], filename, original_name, file_path))
             
             conn.commit()
-            conn.close()
+            
             
             flash('简历上传成功！', 'success')
             return redirect(url_for('jobseeker_dashboard'))
@@ -431,7 +451,7 @@ def apply_job(job_id):
     job = conn.execute('SELECT * FROM jobs WHERE id = ? AND is_active = 1', (job_id,)).fetchone()
     
     if job is None:
-        conn.close()
+        
         flash('职位不存在或已关闭', 'danger')
         return redirect(url_for('index'))
     
@@ -441,7 +461,7 @@ def apply_job(job_id):
     ''', (job_id, session['user_id'])).fetchone()
     
     if existing_application:
-        conn.close()
+        
         flash('您已经投递过这个职位了', 'warning')
         return redirect(url_for('job_detail', job_id=job_id))
     
@@ -449,7 +469,7 @@ def apply_job(job_id):
     resume = conn.execute('SELECT * FROM resumes WHERE user_id = ?', (session['user_id'],)).fetchone()
     
     if resume is None:
-        conn.close()
+        
         flash('请先上传简历', 'warning')
         return redirect(url_for('upload_resume'))
     
@@ -461,18 +481,17 @@ def apply_job(job_id):
         ''', (job_id, session['user_id'], resume['id']))
         
         # 给企业发送通知
-        create_notification(job['company_id'], '新的简历投递', f'您发布的职位 "{job["title"]}" 收到了新的简历投递')
+        create_notification(job['company_id'], '新的简历投递', f'您发布的职位 "{job["title"]}" 收到了新的简历投递', conn)
         
         # 给求职者发送通知
-        create_notification(session['user_id'], '投递成功', f'您已成功投递职位 "{job["title"]}"')
+        create_notification(session['user_id'], '投递成功', f'您已成功投递职位 "{job["title"]}"', conn)
         
         conn.commit()
-        conn.close()
         
         flash('投递成功！', 'success')
         return redirect(url_for('jobseeker_dashboard'))
     
-    conn.close()
+    
     return render_template('apply_job.html', job=job, resume=resume)
 
 
@@ -513,7 +532,7 @@ def job_list():
     query += ' ORDER BY jobs.created_at DESC'
     
     jobs = conn.execute(query, params).fetchall()
-    conn.close()
+    
     
     return render_template('job_list.html', jobs=jobs, keyword=keyword, location=location, job_type=job_type, experience_level=experience_level)
 
@@ -532,7 +551,7 @@ def notifications():
     cursor = conn.cursor()
     cursor.execute('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0', (session['user_id'],))
     conn.commit()
-    conn.close()
+    
     
     return render_template('notifications.html', notifications=notifications_list)
 
@@ -555,7 +574,7 @@ def update_application_status(app_id):
     ''', (app_id,)).fetchone()
     
     if application is None or application['company_id'] != session['user_id']:
-        conn.close()
+        
         flash('无权操作此申请', 'danger')
         return redirect(url_for('company_dashboard'))
     
@@ -574,11 +593,11 @@ def update_application_status(app_id):
     create_notification(
         application['jobseeker_id'],
         '投递状态更新',
-        f'您投递的职位 "{application["title"]}" 状态已更新为: {status_texts.get(status, status)}'
+        f'您投递的职位 "{application["title"]}" 状态已更新为: {status_texts.get(status, status)}',
+        conn
     )
     
     conn.commit()
-    conn.close()
     
     flash('状态更新成功！', 'success')
     return redirect(url_for('company_dashboard'))
@@ -593,13 +612,13 @@ def download_resume(resume_id):
     resume = conn.execute('SELECT * FROM resumes WHERE id = ?', (resume_id,)).fetchone()
     
     if resume is None:
-        conn.close()
+        
         flash('简历不存在', 'danger')
         return redirect(url_for('index'))
     
     # 检查权限：求职者只能下载自己的简历，企业可以下载投递到自己职位的简历
     if session['user_type'] == 'jobseeker' and resume['user_id'] != session['user_id']:
-        conn.close()
+        
         flash('无权下载此简历', 'danger')
         return redirect(url_for('jobseeker_dashboard'))
     
@@ -612,11 +631,11 @@ def download_resume(resume_id):
         ''', (resume_id, session['user_id'])).fetchone()
         
         if application is None:
-            conn.close()
+            
             flash('无权下载此简历', 'danger')
             return redirect(url_for('company_dashboard'))
     
-    conn.close()
+    
     
     return send_from_directory(
         app.config['UPLOAD_FOLDER'],
