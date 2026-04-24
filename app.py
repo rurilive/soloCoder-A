@@ -483,8 +483,8 @@ def delete_resume(resume_id):
     # 软删除简历
     cursor.execute('UPDATE resumes SET is_deleted = 1 WHERE id = ?', (resume_id,))
     
-    # 同时标记相关投递记录为删除（对求职者隐藏）
-    cursor.execute('UPDATE applications SET is_deleted = 1 WHERE resume_id = ? AND jobseeker_id = ?', (resume_id, session['user_id']))
+    # 同时将相关投递记录状态改为"已撤回"，并对求职者隐藏
+    cursor.execute('UPDATE applications SET status = ?, is_deleted = 1 WHERE resume_id = ? AND jobseeker_id = ?', ('withdrawn', resume_id, session['user_id']))
     
     conn.commit()
     
@@ -667,7 +667,8 @@ def update_application_status(app_id):
         'reviewed': '已查看',
         'interview': '邀请面试',
         'accepted': '已录用',
-        'rejected': '已拒绝'
+        'rejected': '已拒绝',
+        'withdrawn': '已撤回'
     }
     
     create_notification(
@@ -715,8 +716,8 @@ def delete_application(app_id):
         if application['jobseeker_id'] != session['user_id']:
             flash('无权删除此申请记录', 'danger')
             return redirect(url_for('jobseeker_dashboard'))
-        # 求职者删除：软删除（对求职者隐藏，但企业仍可见）
-        cursor.execute('UPDATE applications SET is_deleted = 1 WHERE id = ?', (app_id,))
+        # 求职者删除：状态改为"已撤回"，同时对求职者隐藏
+        cursor.execute('UPDATE applications SET status = ?, is_deleted = 1 WHERE id = ?', ('withdrawn', app_id,))
     
     conn.commit()
     

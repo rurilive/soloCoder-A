@@ -113,14 +113,16 @@
                                                         'reviewed': 'bg-info',
                                                         'interview': 'bg-primary',
                                                         'accepted': 'bg-success',
-                                                        'rejected': 'bg-danger'
+                                                        'rejected': 'bg-danger',
+                                                        'withdrawn': 'bg-secondary'
                                                     } %}
                                                     {% set status_texts = {
                                                         'pending': '待处理',
                                                         'reviewed': '已查看',
                                                         'interview': '邀请面试',
                                                         'accepted': '已录用',
-                                                        'rejected': '已拒绝'
+                                                        'rejected': '已拒绝',
+                                                        'withdrawn': '已撤回'
                                                     } %}
                                                     <span class="badge {{ status_classes.get(app.status, 'bg-secondary') }} status-badge">
                                                         {{ status_texts.get(app.status, app.status) }}
@@ -130,6 +132,7 @@
                                                     {% if app.resume_id %}
                                                         <a href="{{ url_for('download_resume', resume_id=app.resume_id) }}" class="btn btn-sm btn-outline-success mb-1">下载简历</a>
                                                     {% endif %}
+                                                    {% if app.status != 'withdrawn' %}
                                                     <form method="POST" action="{{ url_for('update_application_status', app_id=app.id) }}" class="d-inline">
                                                         <select name="status" class="form-select form-select-sm d-inline w-auto" onchange="this.form.submit()">
                                                             <option value="pending" {% if app.status == 'pending' %}selected{% endif %}>待处理</option>
@@ -139,6 +142,9 @@
                                                             <option value="rejected" {% if app.status == 'rejected' %}selected{% endif %}>已拒绝</option>
                                                         </select>
                                                     </form>
+                                                    {% else %}
+                                                    <span class="text-muted small">求职者已撤回申请</span>
+                                                    {% endif %}
                                                     <form method="POST" action="{{ url_for('delete_application', app_id=app.id) }}" class="d-inline" onsubmit="return confirm('确定要删除这条申请记录吗？');">
                                                         <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
                                                     </form>
