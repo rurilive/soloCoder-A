@@ -28,6 +28,7 @@ def get_db_connection():
         g.db.row_factory = sqlite3.Row
         g.db.execute('PRAGMA journal_mode=WAL')
         g.db.execute('PRAGMA busy_timeout=30000')
+        g.db.execute('PRAGMA foreign_keys=ON')
     return g.db
 
 
@@ -307,7 +308,7 @@ def job_detail(job_id):
         SELECT jobs.*, users.company_name, users.company_description
         FROM jobs
         JOIN users ON jobs.company_id = users.id
-        WHERE jobs.id = ?
+        WHERE jobs.id = ? AND jobs.is_active = 1
     ''', (job_id,)).fetchone()
     
     
@@ -355,6 +356,28 @@ def edit_job(job_id):
     
     
     return render_template('edit_job.html', job=job)
+
+
+@app.route('/job/<int:job_id>/delete', methods=['POST'])
+def delete_job(job_id):
+    if 'user_id' not in session or session['user_type'] != 'company':
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    job = conn.execute('SELECT * FROM jobs WHERE id = ? AND company_id = ?', (job_id, session['user_id'])).fetchone()
+    
+    if job is None:
+        flash('职位不存在或您没有权限删除', 'danger')
+        return redirect(url_for('company_dashboard'))
+    
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM applications WHERE job_id = ?', (job_id,))
+    cursor.execute('DELETE FROM jobs WHERE id = ?', (job_id,))
+    conn.commit()
+    
+    flash('职位删除成功！', 'success')
+    return redirect(url_for('company_dashboard'))
 
 
 @app.route('/jobseeker/dashboard')
