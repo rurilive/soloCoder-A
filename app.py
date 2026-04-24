@@ -478,16 +478,6 @@ def apply_job(job_id):
         flash('职位不存在或已关闭', 'danger')
         return redirect(url_for('index'))
     
-    # 检查是否已投递
-    existing_application = conn.execute('''
-        SELECT id FROM applications WHERE job_id = ? AND jobseeker_id = ?
-    ''', (job_id, session['user_id'])).fetchone()
-    
-    if existing_application:
-        
-        flash('您已经投递过这个职位了', 'warning')
-        return redirect(url_for('job_detail', job_id=job_id))
-    
     # 检查是否有简历
     resume = conn.execute('SELECT * FROM resumes WHERE user_id = ?', (session['user_id'],)).fetchone()
     
@@ -495,6 +485,16 @@ def apply_job(job_id):
         
         flash('请先上传简历', 'warning')
         return redirect(url_for('upload_resume'))
+    
+    # 检查是否已使用同一份简历投递过该职位
+    existing_application = conn.execute('''
+        SELECT id FROM applications WHERE job_id = ? AND jobseeker_id = ? AND resume_id = ?
+    ''', (job_id, session['user_id'], resume['id'])).fetchone()
+    
+    if existing_application:
+        
+        flash('您已经使用这份简历投递过这个职位了', 'warning')
+        return redirect(url_for('job_detail', job_id=job_id))
     
     if request.method == 'POST':
         cursor = conn.cursor()
