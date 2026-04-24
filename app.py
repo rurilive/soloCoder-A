@@ -98,6 +98,7 @@ def init_db():
             filename TEXT NOT NULL,
             original_name TEXT NOT NULL,
             file_path TEXT NOT NULL,
+            is_deleted INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
@@ -110,6 +111,7 @@ def init_db():
             jobseeker_id INTEGER NOT NULL,
             resume_id INTEGER,
             status TEXT DEFAULT 'pending',
+            is_deleted INTEGER DEFAULT 0,
             applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (job_id) REFERENCES jobs (id),
             FOREIGN KEY (jobseeker_id) REFERENCES users (id),
@@ -128,6 +130,17 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
+    
+    # 迁移：添加 is_deleted 字段到现有表
+    try:
+        cursor.execute('ALTER TABLE resumes ADD COLUMN is_deleted INTEGER DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
+    
+    try:
+        cursor.execute('ALTER TABLE applications ADD COLUMN is_deleted INTEGER DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
     
     conn.commit()
     conn.close()
@@ -387,18 +400,18 @@ def jobseeker_dashboard():
     
     conn = get_db_connection()
     
-    # 获取用户的投递记录
+    # 获取用户的投递记录（过滤已删除的）
     applications = conn.execute('''
         SELECT applications.*, jobs.title as job_title, jobs.location, users.company_name
         FROM applications
         JOIN jobs ON applications.job_id = jobs.id
         JOIN users ON jobs.company_id = users.id
-        WHERE applications.jobseeker_id = ?
+        WHERE applications.jobseeker_id = ? AND applications.is_deleted = 0
         ORDER BY applications.applied_at DESC
     ''', (session['user_id'],)).fetchall()
     
-    # 获取用户的所有简历
-    resumes = conn.execute('SELECT * FROM resumes WHERE user_id = ? ORDER BY created_at DESC', (session['user_id'],)).fetchall()
+    # 获取用户的所有简历（过滤已删除的）
+    resumes = conn.execute('SELECT * FROM resumes WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC', (session['user_id'],)).fetchall()
     
     # 获取未读通知数量
     unread_count = conn.execute('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0', (session['user_id'],)).fetchone()[0]
@@ -446,8 +459,8 @@ def upload_resume():
         else:
             flash('不支持的文件格式，请上传 pdf, doc, docx 或 txt 文件', 'danger')
     
-    # 获取用户所有简历
-    resumes = conn.execute('SELECT * FROM resumes WHERE user_id = ? ORDER BY created_at DESC', (session['user_id'],)).fetchall()
+    # 获取用户所有简历（过滤已删除的）
+    resumes = conn.execute('SELECT * FROM resumes WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC', (session['user_id'],)).fetchall()
     
     return render_template('upload_resume.html', resumes=resumes)
 
@@ -458,28 +471,21 @@ def delete_resume(resume_id):
         return redirect(url_for('login'))
     
     conn = get_db_connection()
+    cursor = conn.cursor()
     
-    # 检查简历是否属于当前用户
-    resume = conn.execute('SELECT * FROM resumes WHERE id = ? AND user_id = ?', (resume_id, session['user_id'])).fetchone()
+    # 检查简历是否属于当前用户且未删除
+    resume = conn.execute('SELECT * FROM resumes WHERE id = ? AND user_id = ? AND is_deleted = 0', (resume_id, session['user_id'])).fetchone()
     
     if resume is None:
         flash('简历不存在或无权删除', 'danger')
         return redirect(url_for('jobseeker_dashboard'))
     
-    # 检查该简历是否有未删除的投递记录
-    applications = conn.execute('SELECT id FROM applications WHERE resume_id = ?', (resume_id,)).fetchone()
+    # 软删除简历
+    cursor.execute('UPDATE resumes SET is_deleted = 1 WHERE id = ?', (resume_id,))
     
-    if applications:
-        flash('该简历已有投递记录，无法删除', 'warning')
-        return redirect(url_for('jobseeker_dashboard'))
+    # 同时标记相关投递记录为删除（对求职者隐藏）
+    cursor.execute('UPDATE applications SET is_deleted = 1 WHERE resume_id = ? AND jobseeker_id = ?', (resume_id, session['user_id']))
     
-    # 删除文件
-    if os.path.exists(resume['file_path']):
-        os.remove(resume['file_path'])
-    
-    # 删除数据库记录
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM resumes WHERE id = ?', (resume_id,))
     conn.commit()
     
     flash('简历已删除', 'success')
@@ -500,18 +506,18 @@ def apply_job(job_id):
         flash('职位不存在或已关闭', 'danger')
         return redirect(url_for('index'))
     
-    # 获取用户的所有简历
-    resumes = conn.execute('SELECT * FROM resumes WHERE user_id = ? ORDER BY created_at DESC', (session['user_id'],)).fetchall()
+    # 获取用户的所有简历（过滤已删除的）
+    resumes = conn.execute('SELECT * FROM resumes WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC', (session['user_id'],)).fetchall()
     
     if not resumes:
         
         flash('请先上传简历', 'warning')
         return redirect(url_for('upload_resume'))
     
-    # 获取用户已使用哪些简历投递过该职位
+    # 获取用户已使用哪些简历投递过该职位（过滤已删除的投递记录）
     applied_resume_ids = []
     applied_resumes = conn.execute('''
-        SELECT resume_id FROM applications WHERE job_id = ? AND jobseeker_id = ?
+        SELECT resume_id FROM applications WHERE job_id = ? AND jobseeker_id = ? AND is_deleted = 0
     ''', (job_id, session['user_id'])).fetchall()
     
     for ar in applied_resumes:
@@ -528,9 +534,9 @@ def apply_job(job_id):
             flash('请选择要使用的简历', 'danger')
             return redirect(request.url)
         
-        # 检查所选简历是否属于当前用户
+        # 检查所选简历是否属于当前用户且未删除
         selected_resume = conn.execute(
-            'SELECT * FROM resumes WHERE id = ? AND user_id = ?', 
+            'SELECT * FROM resumes WHERE id = ? AND user_id = ? AND is_deleted = 0', 
             (resume_id, session['user_id'])
         ).fetchone()
         
@@ -538,9 +544,9 @@ def apply_job(job_id):
             flash('所选简历无效', 'danger')
             return redirect(request.url)
         
-        # 检查是否已使用该简历投递过该职位
+        # 检查是否已使用该简历投递过该职位（过滤已删除的投递记录）
         existing_application = conn.execute('''
-            SELECT id FROM applications WHERE job_id = ? AND jobseeker_id = ? AND resume_id = ?
+            SELECT id FROM applications WHERE job_id = ? AND jobseeker_id = ? AND resume_id = ? AND is_deleted = 0
         ''', (job_id, session['user_id'], resume_id)).fetchone()
         
         if existing_application:
@@ -683,6 +689,7 @@ def delete_application(app_id):
         return redirect(url_for('login'))
     
     conn = get_db_connection()
+    cursor = conn.cursor()
     
     application = conn.execute('''
         SELECT applications.*, jobs.company_id
@@ -702,13 +709,15 @@ def delete_application(app_id):
         if application['company_id'] != session['user_id']:
             flash('无权删除此申请记录', 'danger')
             return redirect(url_for('company_dashboard'))
+        # 企业删除：硬删除
+        cursor.execute('DELETE FROM applications WHERE id = ?', (app_id,))
     else:
         if application['jobseeker_id'] != session['user_id']:
             flash('无权删除此申请记录', 'danger')
             return redirect(url_for('jobseeker_dashboard'))
+        # 求职者删除：软删除（对求职者隐藏，但企业仍可见）
+        cursor.execute('UPDATE applications SET is_deleted = 1 WHERE id = ?', (app_id,))
     
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM applications WHERE id = ?', (app_id,))
     conn.commit()
     
     flash('申请记录已删除', 'success')
@@ -724,20 +733,22 @@ def download_resume(resume_id):
         return redirect(url_for('login'))
     
     conn = get_db_connection()
-    resume = conn.execute('SELECT * FROM resumes WHERE id = ?', (resume_id,)).fetchone()
     
-    if resume is None:
+    # 求职者只能下载未删除的自己的简历
+    if session['user_type'] == 'jobseeker':
+        resume = conn.execute('SELECT * FROM resumes WHERE id = ? AND user_id = ? AND is_deleted = 0', (resume_id, session['user_id'])).fetchone()
         
-        flash('简历不存在', 'danger')
-        return redirect(url_for('index'))
-    
-    # 检查权限：求职者只能下载自己的简历，企业可以下载投递到自己职位的简历
-    if session['user_type'] == 'jobseeker' and resume['user_id'] != session['user_id']:
+        if resume is None:
+            flash('简历不存在或无权下载', 'danger')
+            return redirect(url_for('jobseeker_dashboard'))
+    else:
+        # 企业：可以下载投递到自己职位的简历（包括求职者标记删除的）
+        resume = conn.execute('SELECT * FROM resumes WHERE id = ?', (resume_id,)).fetchone()
         
-        flash('无权下载此简历', 'danger')
-        return redirect(url_for('jobseeker_dashboard'))
-    
-    if session['user_type'] == 'company':
+        if resume is None:
+            flash('简历不存在', 'danger')
+            return redirect(url_for('index'))
+        
         # 检查是否有投递到该企业职位的申请
         application = conn.execute('''
             SELECT a.id FROM applications a
@@ -746,11 +757,8 @@ def download_resume(resume_id):
         ''', (resume_id, session['user_id'])).fetchone()
         
         if application is None:
-            
             flash('无权下载此简历', 'danger')
             return redirect(url_for('company_dashboard'))
-    
-    
     
     return send_from_directory(
         app.config['UPLOAD_FOLDER'],
