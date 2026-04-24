@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.routes import router as api_router
+import orjson
 
 app = FastAPI()
 app.include_router(api_router, prefix="/api")
@@ -10,6 +11,16 @@ app.include_router(api_router, prefix="/api")
 BASE_DIR = Path(__file__).resolve().parent
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+
+class ORJSONNumpyResponse(Response):
+    media_type = "application/json"
+
+    def render(self, content: any) -> bytes:
+        return orjson.dumps(
+            content,
+            option=orjson.OPT_SERIALIZE_NUMPY,
+        )
 
 
 @app.get("/", response_class=HTMLResponse)

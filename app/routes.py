@@ -1,9 +1,13 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any, Literal
 from app.parser import parse_expression, ParseError
 from app.calculator import generate_surface
 from app.operations import apply_set_operation
+from functools import lru_cache
+import hashlib
+import orjson
 
 router = APIRouter()
 
@@ -48,6 +52,13 @@ PRESETS = [
 VALID_OPERATIONS = ['none', 'union', 'intersection', 'difference', 'symmetric_difference']
 
 
+def _orjson_response(content: Any) -> Response:
+    return Response(
+        content=orjson.dumps(content, option=orjson.OPT_SERIALIZE_NUMPY),
+        media_type="application/json"
+    )
+
+
 class FunctionInput(BaseModel):
     expression: str
     name: Optional[str] = None
@@ -72,12 +83,40 @@ class RenderRequest(BaseModel):
     params: RenderParams = RenderParams()
 
 
+@lru_cache(maxsize=128)
+def _cached_parse_expression(expression: str):
+    return parse_expression(expression)
+
+
+def _make_cache_key(
+    expressions: tuple,
+    operation: str,
+    x_min: float, x_max: float,
+    y_min: float, y_max: float,
+    resolution: int,
+    epsilon: float
+) -> str:
+    key_parts = [
+        str(expressions),
+        operation,
+        f"{x_min},{x_max},{y_min},{y_max}",
+        str(resolution),
+        str(epsilon)
+    ]
+    key_str = "|".join(key_parts)
+    return hashlib.md5(key_str.encode()).hexdigest()
+
+
+_render_cache: Dict[str, Any] = {}
+_MAX_CACHE_SIZE = 32
+
+
 @router.get("/presets")
 async def get_presets():
-    return {
+    return _orjson_response({
         "success": True,
         "presets": PRESETS
-    }
+    })
 
 
 @router.post("/render")
@@ -91,12 +130,29 @@ async def post_render(request: RenderRequest):
             }
         )
     
+    expressions = tuple(f.expression for f in request.functions)
+    cache_key = _make_cache_key(
+        expressions,
+        request.operation,
+        request.params.x_min, request.params.x_max,
+        request.params.y_min, request.params.y_max,
+        request.params.resolution,
+        request.params.epsilon
+    )
+    
+    if cache_key in _render_cache:
+        return _orjson_response({
+            "success": True,
+            "data": _render_cache[cache_key],
+            "_cached": True
+        })
+    
     parsed_functions = []
     expression_types = []
     
     for func_input in request.functions:
         try:
-            parsed = parse_expression(func_input.expression)
+            parsed = _cached_parse_expression(func_input.expression)
             parsed_functions.append({
                 'func': parsed['func'],
                 'type': parsed['type'],
@@ -176,7 +232,12 @@ async def post_render(request: RenderRequest):
             if i < len(colors):
                 surface['color'] = colors[i]
     
-    return {
+    if len(_render_cache) >= _MAX_CACHE_SIZE:
+        first_key = next(iter(_render_cache.keys()))
+        del _render_cache[first_key]
+    _render_cache[cache_key] = result
+    
+    return _orjson_response({
         "success": True,
         "data": result
-    }
+    })
