@@ -21,6 +21,7 @@
     </div>
 </div>
 
+{% if not session.get('user_id') %}
 <div class="row mb-5">
     <div class="col-md-4">
         <div class="card h-100 text-center p-4">
@@ -47,6 +48,52 @@
         </div>
     </div>
 </div>
+{% else %}
+<div class="row mb-5">
+    <div class="col-md-4">
+        {% if session.user_type == 'company' %}
+            <div class="card h-100 text-center p-4">
+                <div class="display-4 mb-3">📝</div>
+                <h3>发布新职位</h3>
+                <p class="text-muted">创建新的职位信息，吸引优秀人才申请</p>
+                <a href="{{ url_for('create_job') }}" class="btn btn-outline-primary">发布职位</a>
+            </div>
+        {% else %}
+            <div class="card h-100 text-center p-4">
+                <div class="display-4 mb-3">📄</div>
+                <h3>我的简历</h3>
+                <p class="text-muted">管理您的简历，随时更新求职状态</p>
+                <a href="{{ url_for('upload_resume') }}" class="btn btn-outline-primary">更新简历</a>
+            </div>
+        {% endif %}
+    </div>
+    <div class="col-md-4">
+        {% if session.user_type == 'company' %}
+            <div class="card h-100 text-center p-4">
+                <div class="display-4 mb-3">📋</div>
+                <h3>收到的简历</h3>
+                <p class="text-muted">查看求职者投递的简历，筛选合适人才</p>
+                <a href="{{ url_for('company_dashboard') }}#applications" class="btn btn-outline-primary">查看简历</a>
+            </div>
+        {% else %}
+            <div class="card h-100 text-center p-4">
+                <div class="display-4 mb-3">📋</div>
+                <h3>我的投递</h3>
+                <p class="text-muted">查看您的投递记录和状态更新</p>
+                <a href="{{ url_for('jobseeker_dashboard') }}" class="btn btn-outline-primary">查看记录</a>
+            </div>
+        {% endif %}
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 text-center p-4">
+            <div class="display-4 mb-3">🔍</div>
+            <h3>浏览职位</h3>
+            <p class="text-muted">搜索和浏览所有可用的职位信息</p>
+            <a href="{{ url_for('job_list') }}" class="btn btn-outline-primary">浏览职位</a>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <div class="card">
     <div class="card-header bg-white py-3">
