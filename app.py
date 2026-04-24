@@ -27,6 +27,19 @@ def get_db_connection():
     return conn
 
 
+@app.context_processor
+def inject_unread_count():
+    if 'user_id' in session:
+        conn = get_db_connection()
+        unread_count = conn.execute(
+            'SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0',
+            (session['user_id'],)
+        ).fetchone()[0]
+        conn.close()
+        return {'unread_count': unread_count}
+    return {'unread_count': 0}
+
+
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
