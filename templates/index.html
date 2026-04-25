@@ -316,7 +316,11 @@
                 },
             };
             const response = await fetch(API_BASE + url, { ...defaultOptions, ...options });
-            return response.json();
+            const data = await response.json();
+            if (data && data.results !== undefined) {
+                return data.results;
+            }
+            return data;
         }
         
         // 加载项目列表

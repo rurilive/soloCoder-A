@@ -7,7 +7,7 @@ from django.views.generic import TemplateView
 from rest_framework.routers import DefaultRouter
 from projects.views import ProjectViewSet, ApiGroupViewSet
 from apis.views import ApiDefinitionViewSet, ApiTestHistoryViewSet
-from mock_server.views import MockConfigViewSet, MockLogViewSet, MockServerViewSet
+from mock_server.views import MockConfigViewSet, MockLogViewSet, mock_server_handler
 from test_runner.views import (
     TestCaseViewSet, TestSuiteViewSet, TestRunViewSet, 
     TestResultViewSet, BatchTestViewSet
@@ -29,6 +29,6 @@ router.register(r'batch-tests', BatchTestViewSet, basename='batchtest')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
-    re_path(r'^mock/(?P<path>.*)$', MockServerViewSet.as_view({'get': 'handle_mock', 'post': 'handle_mock', 'put': 'handle_mock', 'delete': 'handle_mock', 'patch': 'handle_mock', 'head': 'handle_mock', 'options': 'handle_mock'}), name='mock-server'),
+    re_path(r'^mock/(?P<path>.*)$', mock_server_handler, name='mock-server'),
     path('', TemplateView.as_view(template_name='index.html'), name='home'),
 ]

@@ -57,112 +57,106 @@ class MockLogViewSet(viewsets.ReadOnlyModelViewSet):
         return queryset
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class MockServerViewSet(viewsets.ViewSet):
+@csrf_exempt
+def mock_server_handler(request, path):
+    method = request.method
     
-    @action(detail=False, methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
-    def handle_mock(self, request, path=None):
-        method = request.method
-        full_path = request.path
-        
-        mock_path = full_path
-        if mock_path.startswith('/mock/'):
-            mock_path = mock_path[5:]
-        
-        api = self._find_api_by_path(mock_path, method)
-        
-        if not api:
-            return JsonResponse({
-                'error': 'Mock API not found',
-                'path': mock_path,
-                'method': method
-            }, status=404)
-        
-        mock_config = self._get_mock_config(api)
-        
-        if not mock_config:
-            return JsonResponse({
-                'error': 'No mock config found for this API',
-                'api': api.name
-            }, status=404)
-        
-        if mock_config.delay_ms > 0:
-            time.sleep(mock_config.delay_ms / 1000.0)
-        
-        request_headers = dict(request.headers)
-        request_body = request.body.decode('utf-8') if request.body else None
-        request_query_params = dict(request.GET)
-        
-        response_status = mock_config.status_code
-        response_headers = mock_config.response_headers or {}
-        response_body = mock_config.response_body_raw or json.dumps(mock_config.response_body, ensure_ascii=False)
-        
-        MockLog.objects.create(
-            mock_config=mock_config,
-            api=api,
-            request_method=method,
-            request_path=mock_path,
-            request_headers=request_headers,
-            request_body=request_body,
-            request_query_params=request_query_params,
-            response_status=response_status,
-            response_headers=response_headers,
-            response_body=response_body
-        )
-        
-        content_type = response_headers.get('Content-Type', 'application/json')
-        
-        if content_type.startswith('application/json'):
-            try:
-                json_body = json.loads(response_body)
-                return JsonResponse(json_body, status=response_status, headers=response_headers)
-            except:
-                pass
-        
-        return HttpResponse(
-            response_body,
-            status=response_status,
-            content_type=content_type,
-            headers=response_headers
-        )
+    mock_path = path
     
-    def _find_api_by_path(self, path, method):
-        apis = ApiDefinition.objects.filter(method=method, is_active=True)
-        
-        for api in apis:
-            api_path = api.path.lstrip('/')
-            target_path = path.lstrip('/')
-            
-            if self._match_path(api_path, target_path):
-                return api
-        
-        return None
+    apis = ApiDefinition.objects.filter(method=method, is_active=True)
     
-    def _match_path(self, pattern, path):
-        if pattern == path:
-            return True
+    api = None
+    for a in apis:
+        api_path = a.path.lstrip('/')
+        target_path = mock_path.lstrip('/')
         
-        pattern_parts = pattern.split('/')
-        path_parts = path.split('/')
-        
-        if len(pattern_parts) != len(path_parts):
-            return False
-        
-        for p_part, t_part in zip(pattern_parts, path_parts):
-            if p_part.startswith('{') and p_part.endswith('}'):
-                continue
-            if p_part.startswith(':'):
-                continue
-            if p_part != t_part:
-                return False
-        
+        if match_path(api_path, target_path):
+            api = a
+            break
+    
+    if not api:
+        return JsonResponse({
+            'error': 'Mock API not found',
+            'path': mock_path,
+            'method': method
+        }, status=404)
+    
+    mock_configs = MockConfig.objects.filter(api=api, is_active=True)
+    
+    mock_config = mock_configs.filter(is_default=True).first()
+    if not mock_config:
+        mock_config = mock_configs.first()
+    
+    if not mock_config:
+        return JsonResponse({
+            'error': 'No mock config found for this API',
+            'api': api.name
+        }, status=404)
+    
+    if mock_config.delay_ms > 0:
+        time.sleep(mock_config.delay_ms / 1000.0)
+    
+    request_headers = dict(request.headers)
+    request_body = request.body.decode('utf-8') if request.body else None
+    request_query_params = dict(request.GET)
+    
+    response_status = mock_config.status_code
+    response_headers = mock_config.response_headers or {}
+    response_body = mock_config.response_body_raw or json.dumps(mock_config.response_body, ensure_ascii=False)
+    
+    MockLog.objects.create(
+        mock_config=mock_config,
+        api=api,
+        request_method=method,
+        request_path=mock_path,
+        request_headers=request_headers,
+        request_body=request_body,
+        request_query_params=request_query_params,
+        response_status=response_status,
+        response_headers=response_headers,
+        response_body=response_body
+    )
+    
+    content_type = response_headers.get('Content-Type', 'application/json')
+    
+    headers_without_content_type = {k: v for k, v in response_headers.items() if k.lower() != 'content-type'}
+    
+    if content_type.startswith('application/json'):
+        try:
+            json_body = json.loads(response_body)
+            return JsonResponse(json_body, status=response_status, headers=headers_without_content_type)
+        except:
+            pass
+    
+    return HttpResponse(
+        response_body,
+        status=response_status,
+        content_type=content_type,
+        headers=headers_without_content_type
+    )
+
+
+def match_path(pattern, path):
+    if pattern == path:
         return True
     
-    def _get_mock_config(self, api):
-        mock_configs = MockConfig.objects.filter(api=api, is_active=True)
-        
-        default_config = mock_configs.filter(is_default=True).first()
-        if default_config:
-            return default_config
-        
-        return mock_configs.first()
+    pattern_parts = pattern.split('/')
+    path_parts = path.split('/')
+    
+    if len(pattern_parts) != len(path_parts):
+        return False
+    
+    for p_part, t_part in zip(pattern_parts, path_parts):
+        if p_part.startswith('{') and p_part.endswith('}'):
+            continue
+        if p_part.startswith(':'):
+            continue
+        if p_part != t_part:
+            return False
+    
+    return True
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class MockServerViewSet(viewsets.ViewSet):
+    pass
