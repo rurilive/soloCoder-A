@@ -1,103 +1,149 @@
 {% extends "base.html" %}
 
-{% block title %}首页 - 招聘求职平台{% endblock %}
+{% block title %}DevConnect - 程序员专属招聘平台{% endblock %}
 
 {% block content %}
-<div class="jumbotron bg-primary text-white rounded-3 p-5 mb-5">
+<div class="rounded-4 p-5 mb-5 position-relative overflow-hidden" style="background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border: 1px solid var(--border-color);">
+    <div class="position-absolute top-0 end-0 p-4 opacity-30" style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted);">
+        <div><span class="text-primary">const</span> <span class="text-info">platform</span> = {</div>
+        <div>&nbsp;&nbsp;name: <span class="text-success">"DevConnect"</span>,</div>
+        <div>&nbsp;&nbsp;target: <span class="text-success">"Developers"</span>,</div>
+        <div>&nbsp;&nbsp;mission: <span class="text-success">"Connect & Build"</span></div>
+        <div>};</div>
+    </div>
     <div class="row align-items-center">
-        <div class="col-md-8">
-            <h1 class="display-4 fw-bold">找到理想工作，招到优秀人才</h1>
-            <p class="lead mt-3">连接企业与求职者，打造高效的招聘求职体验</p>
-            <div class="mt-4">
-                <a href="{{ url_for('job_list') }}" class="btn btn-light btn-lg me-3">浏览职位</a>
+        <div class="col-lg-8">
+            <div class="font-mono text-muted mb-2">// 欢迎来到程序员的专属招聘平台</div>
+            <h1 class="display-4 fw-bold mb-3">
+                <span class="font-mono" style="background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">DevConnect</span>
+            </h1>
+            <p class="lead text-secondary">为程序员量身打造的招聘平台。在这里，找到理想的工作，遇见优秀的团队。</p>
+            <div class="mt-4 d-flex flex-wrap gap-2">
+                <a href="{{ url_for('job_list') }}" class="btn btn-primary btn-lg">
+                    <span class="font-mono">></span> 浏览职位
+                </a>
                 {% if not session.get('user_id') %}
-                    <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg">立即注册</a>
+                    <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">
+                        <span class="font-mono">//</span> 立即注册
+                    </a>
                 {% endif %}
             </div>
         </div>
-        <div class="col-md-4 text-center">
-            <div class="display-1">👥</div>
+        <div class="col-lg-4 text-center d-none d-lg-block">
+            <div class="card p-4 text-start" style="background: rgba(0,0,0,0.3);">
+                <div class="font-mono text-muted small mb-2">// 招聘流程</div>
+                <div class="font-mono text-small" style="line-height: 1.8;">
+                    <div><span class="text-info">function</span> <span class="text-primary">findJob</span>() {</div>
+                    <div>&nbsp;&nbsp;<span class="text-warning">upload</span>(resume);</div>
+                    <div>&nbsp;&nbsp;<span class="text-warning">browse</span>(positions);</div>
+                    <div>&nbsp;&nbsp;<span class="text-warning">apply</span>(dreamJob);</div>
+                    <div>&nbsp;&nbsp;<span class="text-warning">getHired</span>();</div>
+                    <div>&nbsp;&nbsp;<span class="text-info">return</span> <span class="text-success">"Success!"</span>;</div>
+                    <div>}</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 {% if not session.get('user_id') %}
-<div class="row mb-5">
+<div class="row mb-5 g-4">
     <div class="col-md-4">
         <div class="card h-100 text-center p-4">
-            <div class="display-4 mb-3">🏢</div>
-            <h3>企业用户</h3>
-            <p class="text-muted">发布职位信息，筛选优秀简历，快速找到合适的人才</p>
-            <a href="{{ url_for('register') }}" class="btn btn-outline-primary">企业注册</a>
+            <div class="display-4 mb-3" style="color: var(--accent-cyan);">🏢</div>
+            <h4 class="mb-3">企业招聘</h4>
+            <p class="text-muted mb-4">发布技术职位，筛选优秀开发者简历，快速找到合适的技术人才</p>
+            <a href="{{ url_for('register') }}" class="btn btn-outline-primary">
+                <span class="font-mono">//</span> 企业注册
+            </a>
         </div>
     </div>
     <div class="col-md-4">
         <div class="card h-100 text-center p-4">
-            <div class="display-4 mb-3">👤</div>
-            <h3>求职者</h3>
-            <p class="text-muted">上传简历，搜索职位，投递申请，找到理想工作</p>
-            <a href="{{ url_for('register') }}" class="btn btn-outline-primary">求职者注册</a>
+            <div class="display-4 mb-3" style="color: var(--accent-purple);">👨‍💻</div>
+            <h4 class="mb-3">开发者求职</h4>
+            <p class="text-muted mb-4">上传多份简历，搜索心仪的技术职位，投递给最适合你的公司</p>
+            <a href="{{ url_for('register') }}" class="btn btn-outline-primary">
+                <span class="font-mono">//</span> 求职注册
+            </a>
         </div>
     </div>
     <div class="col-md-4">
         <div class="card h-100 text-center p-4">
-            <div class="display-4 mb-3">🔔</div>
-            <h3>实时通知</h3>
-            <p class="text-muted">投递状态实时更新，重要消息及时提醒</p>
-            <a href="{{ url_for('job_list') }}" class="btn btn-outline-primary">开始探索</a>
+            <div class="display-4 mb-3" style="color: var(--accent-green);">🔔</div>
+            <h4 class="mb-3">实时通知</h4>
+            <p class="text-muted mb-4">投递状态实时更新，面试邀请、录用通知及时送达</p>
+            <a href="{{ url_for('job_list') }}" class="btn btn-outline-primary">
+                <span class="font-mono">//</span> 开始探索
+            </a>
         </div>
     </div>
 </div>
 {% else %}
-<div class="row mb-5">
+<div class="row mb-5 g-4">
     <div class="col-md-4">
         {% if session.user_type == 'company' %}
             <div class="card h-100 text-center p-4">
-                <div class="display-4 mb-3">📝</div>
-                <h3>发布新职位</h3>
-                <p class="text-muted">创建新的职位信息，吸引优秀人才申请</p>
-                <a href="{{ url_for('create_job') }}" class="btn btn-outline-primary">发布职位</a>
+                <div class="display-4 mb-3" style="color: var(--accent-cyan);">📝</div>
+                <h4 class="mb-3">发布新职位</h4>
+                <p class="text-muted mb-4">创建新的技术职位信息，吸引优秀开发者申请</p>
+                <a href="{{ url_for('create_job') }}" class="btn btn-outline-primary">
+                    <span class="font-mono">-></span> 发布职位
+                </a>
             </div>
         {% else %}
             <div class="card h-100 text-center p-4">
-                <div class="display-4 mb-3">📄</div>
-                <h3>我的简历</h3>
-                <p class="text-muted">管理您的简历，随时更新求职状态</p>
-                <a href="{{ url_for('upload_resume') }}" class="btn btn-outline-primary">更新简历</a>
+                <div class="display-4 mb-3" style="color: var(--accent-purple);">📄</div>
+                <h4 class="mb-3">我的简历</h4>
+                <p class="text-muted mb-4">管理多份简历，针对不同职位选择最合适的一份</p>
+                <a href="{{ url_for('upload_resume') }}" class="btn btn-outline-primary">
+                    <span class="font-mono">-></span> 上传简历
+                </a>
             </div>
         {% endif %}
     </div>
     <div class="col-md-4">
         {% if session.user_type == 'company' %}
             <div class="card h-100 text-center p-4">
-                <div class="display-4 mb-3">📋</div>
-                <h3>收到的简历</h3>
-                <p class="text-muted">查看求职者投递的简历，筛选合适人才</p>
-                <a href="{{ url_for('company_dashboard') }}#applications" class="btn btn-outline-primary">查看简历</a>
+                <div class="display-4 mb-3" style="color: var(--accent-green);">📋</div>
+                <h4 class="mb-3">收到的简历</h4>
+                <p class="text-muted mb-4">查看开发者投递的简历，筛选合适的技术人才</p>
+                <a href="{{ url_for('company_dashboard') }}#applications" class="btn btn-outline-primary">
+                    <span class="font-mono">-></span> 查看简历
+                </a>
             </div>
         {% else %}
             <div class="card h-100 text-center p-4">
-                <div class="display-4 mb-3">📋</div>
-                <h3>我的投递</h3>
-                <p class="text-muted">查看您的投递记录和状态更新</p>
-                <a href="{{ url_for('jobseeker_dashboard') }}" class="btn btn-outline-primary">查看记录</a>
+                <div class="display-4 mb-3" style="color: var(--accent-green);">📋</div>
+                <h4 class="mb-3">我的投递</h4>
+                <p class="text-muted mb-4">查看投递记录和状态更新，追踪求职进度</p>
+                <a href="{{ url_for('jobseeker_dashboard') }}" class="btn btn-outline-primary">
+                    <span class="font-mono">-></span> 查看记录
+                </a>
             </div>
         {% endif %}
     </div>
     <div class="col-md-4">
         <div class="card h-100 text-center p-4">
-            <div class="display-4 mb-3">🔍</div>
-            <h3>浏览职位</h3>
-            <p class="text-muted">搜索和浏览所有可用的职位信息</p>
-            <a href="{{ url_for('job_list') }}" class="btn btn-outline-primary">浏览职位</a>
+            <div class="display-4 mb-3" style="color: var(--accent-cyan);">🔍</div>
+            <h4 class="mb-3">浏览职位</h4>
+            <p class="text-muted mb-4">搜索和浏览所有可用的技术职位，找到理想工作</p>
+            <a href="{{ url_for('job_list') }}" class="btn btn-outline-primary">
+                <span class="font-mono">-></span> 浏览职位
+            </a>
         </div>
     </div>
 </div>
 {% endif %}
 
 <div class="card">
-    <div class="card-header bg-white py-3">
-        <h3 class="mb-0">最新职位</h3>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="mb-0 font-mono">
+            <span class="text-muted">//</span> 最新职位
+        </h3>
+        <a href="{{ url_for('job_list') }}" class="btn btn-sm btn-outline-primary">
+            查看全部 <span class="font-mono">-></span>
+        </a>
     </div>
     <div class="card-body">
         {% if jobs %}
@@ -106,9 +152,9 @@
                     <div class="col-md-6 col-lg-4">
                         <div class="card job-card h-100">
                             <div class="card-body">
-                                <h5 class="card-title">{{ job.title }}</h5>
-                                <h6 class="card-subtitle text-muted mb-2">{{ job.company_name }}</h6>
-                                <div class="mb-2">
+                                <h5 class="card-title mb-1">{{ job.title }}</h5>
+                                <p class="text-muted small mb-2">{{ job.company_name }}</p>
+                                <div class="mb-3">
                                     {% if job.salary_range %}
                                         <span class="badge bg-success me-1">{{ job.salary_range }}</span>
                                     {% endif %}
@@ -127,14 +173,13 @@
                                 <p class="card-text small text-muted">
                                     {{ job.description[:100] }}{% if job.description|length > 100 %}...{% endif %}
                                 </p>
-                                <a href="{{ url_for('job_detail', job_id=job.id) }}" class="btn btn-primary btn-sm">查看详情</a>
+                                <a href="{{ url_for('job_detail', job_id=job.id) }}" class="btn btn-primary btn-sm">
+                                    <span class="font-mono">></span> 查看详情
+                                </a>
                             </div>
                         </div>
                     </div>
                 {% endfor %}
-            </div>
-            <div class="text-center mt-4">
-                <a href="{{ url_for('job_list') }}" class="btn btn-outline-primary">查看更多职位</a>
             </div>
         {% else %}
             <div class="text-center py-5">
