@@ -133,6 +133,46 @@
             color: var(--accent-cyan) !important;
         }
 
+        .nav-btn-login {
+            color: var(--text-primary) !important;
+            border: 1px solid rgba(0, 212, 255, 0.4) !important;
+            padding: 0.4rem 1rem !important;
+        }
+
+        .nav-btn-login:hover {
+            background: rgba(0, 212, 255, 0.15) !important;
+            border-color: var(--accent-cyan) !important;
+        }
+
+        .nav-btn-register {
+            background: var(--gradient-1) !important;
+            color: #0a0e17 !important;
+            padding: 0.4rem 1.25rem !important;
+            font-weight: 600 !important;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3) !important;
+        }
+
+        .nav-btn-register:hover {
+            box-shadow: 0 0 25px rgba(0, 212, 255, 0.5) !important;
+            transform: translateY(-1px) !important;
+        }
+
+        .nav-user-dropdown {
+            background: rgba(0, 212, 255, 0.08) !important;
+            border: 1px solid rgba(0, 212, 255, 0.3) !important;
+            padding: 0.4rem 1rem !important;
+            color: var(--text-primary) !important;
+        }
+
+        .nav-user-dropdown:hover {
+            background: rgba(0, 212, 255, 0.15) !important;
+            border-color: var(--accent-cyan) !important;
+        }
+
+        .nav-user-dropdown.show {
+            background: rgba(0, 212, 255, 0.2) !important;
+        }
+
         .navbar-toggler {
             border-color: var(--border-color);
         }
@@ -645,8 +685,8 @@
                 <ul class="navbar-nav">
                     {% if session.get('user_id') %}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                                <span class="font-mono text-muted">></span> {{ session.username }}
+                            <a class="nav-link dropdown-toggle nav-user-dropdown" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                                <span class="font-mono">></span> {{ session.username }}
                                 {% if unread_count and unread_count > 0 %}
                                     <span class="unread-dot"></span>
                                 {% endif %}
@@ -673,13 +713,13 @@
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link font-mono" href="{{ url_for('login') }}">
-                                <span class="text-muted">login</span><span class="text-muted">()</span>
+                            <a class="nav-link nav-btn-login font-mono" href="{{ url_for('login') }}">
+                                login()
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('register') }}">
-                                <span class="font-mono text-muted">register</span><span class="font-mono text-muted">()</span>
+                            <a class="nav-link nav-btn-register font-mono" href="{{ url_for('register') }}">
+                                register()
                             </a>
                         </li>
                     {% endif %}
