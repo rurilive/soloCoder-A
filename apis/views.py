@@ -9,7 +9,8 @@ from rest_framework.response import Response
 from django.utils import timezone
 from .models import ApiDefinition, ApiTestHistory
 from .serializers import ApiDefinitionSerializer, ApiTestHistorySerializer
-from projects.models import Environment, GlobalConfig
+from projects.models import Environment, GlobalConfig, Project, ApiGroup
+from .document_generator import DocumentGenerator
 
 
 def apply_global_configs(request_headers, request_params, project, environment_id=None):
@@ -245,6 +246,132 @@ class ApiDefinitionViewSet(viewsets.ModelViewSet):
         history = api.test_history.all()[:20]
         serializer = ApiTestHistorySerializer(history, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def document(self, request, pk=None):
+        """
+        生成单个API的文档
+        GET /api/apis/{id}/document/?doc_format=json|markdown|postman
+        """
+        api = self.get_object()
+        doc_format = request.query_params.get('doc_format', 'json').lower()
+        base_url = request.query_params.get('base_url', '')
+        
+        if not base_url and api.project:
+            base_url = api.project.base_url or ''
+        
+        project_name = api.project.name if api.project else "API Documentation"
+        
+        try:
+            document = DocumentGenerator.generate_document(
+                [api],
+                format=doc_format,
+                project_name=project_name,
+                base_url=base_url
+            )
+            
+            if doc_format == 'markdown':
+                return Response({
+                    'success': True,
+                    'format': 'markdown',
+                    'document': document
+                })
+            else:
+                return Response(document)
+                
+        except ValueError as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['get'])
+    def batch_document(self, request):
+        """
+        批量生成API文档
+        GET /api/apis/batch_document/?project={project_id}&group={group_id}&doc_format=json|markdown|postman
+        
+        参数:
+            project: 项目ID（可选，如果不提供则需要group）
+            group: 分组ID（可选，如果不提供则需要project）
+            doc_format: 文档格式（json, markdown, postman）
+            base_url: 基础URL（可选，默认使用项目base_url）
+        """
+        project_id = request.query_params.get('project')
+        group_id = request.query_params.get('group')
+        doc_format = request.query_params.get('doc_format', 'json').lower()
+        base_url = request.query_params.get('base_url', '')
+        
+        if not project_id and not group_id:
+            return Response({
+                'success': False,
+                'error': '请提供 project 或 group 参数'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        apis = ApiDefinition.objects.filter(is_active=True)
+        project_name = "API Documentation"
+        
+        if project_id:
+            try:
+                project = Project.objects.get(id=project_id)
+                apis = apis.filter(project=project)
+                project_name = project.name
+                if not base_url:
+                    base_url = project.base_url or ''
+            except Project.DoesNotExist:
+                return Response({
+                    'success': False,
+                    'error': f'项目不存在: {project_id}'
+                }, status=status.HTTP_404_NOT_FOUND)
+        
+        if group_id:
+            try:
+                group = ApiGroup.objects.get(id=group_id)
+                apis = apis.filter(group=group)
+                if not project_id and group.project:
+                    project_name = f"{group.project.name} - {group.name}"
+                    if not base_url:
+                        base_url = group.project.base_url or ''
+                else:
+                    project_name = group.name
+            except ApiGroup.DoesNotExist:
+                return Response({
+                    'success': False,
+                    'error': f'分组不存在: {group_id}'
+                }, status=status.HTTP_404_NOT_FOUND)
+        
+        apis = apis.order_by('created_at')
+        
+        if not apis.exists():
+            return Response({
+                'success': False,
+                'error': '没有找到匹配的API'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            document = DocumentGenerator.generate_document(
+                list(apis),
+                format=doc_format,
+                project_name=project_name,
+                base_url=base_url
+            )
+            
+            if doc_format == 'markdown':
+                return Response({
+                    'success': True,
+                    'format': 'markdown',
+                    'project_name': project_name,
+                    'api_count': apis.count(),
+                    'document': document
+                })
+            else:
+                return Response(document)
+                
+        except ValueError as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ApiTestHistoryViewSet(viewsets.ReadOnlyModelViewSet):
