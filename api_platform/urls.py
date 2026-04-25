@@ -5,7 +5,7 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.generic import TemplateView
 from rest_framework.routers import DefaultRouter
-from projects.views import ProjectViewSet, ApiGroupViewSet
+from projects.views import ProjectViewSet, ApiGroupViewSet, EnvironmentViewSet, GlobalConfigViewSet
 from apis.views import ApiDefinitionViewSet, ApiTestHistoryViewSet
 from mock_server.views import MockConfigViewSet, MockLogViewSet, mock_server_handler
 from test_runner.views import (
@@ -16,6 +16,8 @@ from test_runner.views import (
 router = DefaultRouter()
 router.register(r'projects', ProjectViewSet, basename='project')
 router.register(r'groups', ApiGroupViewSet, basename='apigroup')
+router.register(r'environments', EnvironmentViewSet, basename='environment')
+router.register(r'global-configs', GlobalConfigViewSet, basename='globalconfig')
 router.register(r'apis', ApiDefinitionViewSet, basename='apidefinition')
 router.register(r'test-history', ApiTestHistoryViewSet, basename='apitesthistory')
 router.register(r'mock-configs', MockConfigViewSet, basename='mockconfig')

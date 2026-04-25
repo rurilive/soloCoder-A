@@ -57,6 +57,8 @@ class ApiTestHistory(models.Model):
     response_time = models.FloatField(verbose_name='响应时间(ms)')
     is_success = models.BooleanField(verbose_name='是否成功')
     error_message = models.TextField(blank=True, null=True, verbose_name='错误信息')
+    environment_id = models.IntegerField(blank=True, null=True, verbose_name='使用的环境ID')
+    used_environment_name = models.CharField(max_length=100, blank=True, null=True, verbose_name='使用的环境名称')
     tested_at = models.DateTimeField(default=timezone.now, verbose_name='测试时间')
 
     class Meta:

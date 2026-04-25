@@ -1,6 +1,7 @@
 import requests
 import json
 import time
+import base64
 from urllib.parse import urljoin
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -8,6 +9,71 @@ from rest_framework.response import Response
 from django.utils import timezone
 from .models import ApiDefinition, ApiTestHistory
 from .serializers import ApiDefinitionSerializer, ApiTestHistorySerializer
+from projects.models import Environment, GlobalConfig
+
+
+def apply_global_configs(request_headers, request_params, project, environment_id=None):
+    """
+    应用全局配置（Headers、认证、环境变量）
+    """
+    global_configs = GlobalConfig.objects.filter(
+        project=project, 
+        is_active=True, 
+        is_global=True
+    )
+    
+    for config in global_configs:
+        if config.type == 'header':
+            header_key = config.config_data.get('key')
+            header_value = config.config_data.get('value', '')
+            if header_key and header_key not in request_headers:
+                request_headers[header_key] = header_value
+        
+        elif config.type == 'auth':
+            auth_type = config.auth_type
+            config_data = config.config_data
+            
+            if auth_type == 'bearer':
+                token = config_data.get('token', '')
+                prefix = config_data.get('prefix', 'Bearer')
+                header_name = config_data.get('header_name', 'Authorization')
+                if header_name not in request_headers:
+                    request_headers[header_name] = f'{prefix} {token}' if prefix else token
+            
+            elif auth_type == 'basic':
+                username = config_data.get('username', '')
+                password = config_data.get('password', '')
+                header_name = config_data.get('header_name', 'Authorization')
+                credentials = f'{username}:{password}'.encode('utf-8')
+                base64_credentials = base64.b64encode(credentials).decode('utf-8')
+                if header_name not in request_headers:
+                    request_headers[header_name] = f'Basic {base64_credentials}'
+            
+            elif auth_type == 'apikey':
+                header_name = config_data.get('header_name', 'X-API-Key')
+                api_key = config_data.get('api_key', '')
+                if header_name not in request_headers:
+                    request_headers[header_name] = api_key
+    
+    return request_headers, request_params
+
+
+def get_base_url(project, environment_id=None):
+    """
+    获取基础URL（优先使用选择的环境，否则使用默认环境，最后使用项目base_url）
+    """
+    if environment_id:
+        try:
+            env = Environment.objects.get(id=environment_id, project=project, is_active=True)
+            return env.host, env
+        except Environment.DoesNotExist:
+            pass
+    
+    default_env = Environment.objects.filter(project=project, is_default=True, is_active=True).first()
+    if default_env:
+        return default_env.host, default_env
+    
+    return project.base_url if project.base_url else '', None
 
 
 class ApiDefinitionViewSet(viewsets.ModelViewSet):
@@ -29,8 +95,12 @@ class ApiDefinitionViewSet(viewsets.ModelViewSet):
         api = self.get_object()
         project = api.project
         
-        base_url = project.base_url if project.base_url else ''
+        environment_id = request.data.get('environment_id')
+        apply_global = request.data.get('apply_global', True)
+        
+        base_url, used_environment = get_base_url(project, environment_id)
         path = api.path
+        
         if not path.startswith('/'):
             path = '/' + path
         
@@ -56,6 +126,11 @@ class ApiDefinitionViewSet(viewsets.ModelViewSet):
         
         if api.request_body and api.request_body_type == 'json':
             request_body = api.request_body
+        
+        if apply_global:
+            request_headers, request_params = apply_global_configs(
+                request_headers, request_params, project, environment_id
+            )
         
         if request.data.get('url'):
             url = request.data.get('url')
@@ -107,13 +182,19 @@ class ApiDefinitionViewSet(viewsets.ModelViewSet):
                 response_body=response_body_str,
                 response_time=response_time,
                 is_success=is_success,
-                error_message=None
+                error_message=None,
+                environment_id=environment_id,
+                used_environment_name=used_environment.name if used_environment else None
             )
             
             return Response({
                 'success': True,
                 'data': {
                     'test_id': test_history.id,
+                    'environment': {
+                        'id': environment_id,
+                        'name': used_environment.name if used_environment else None
+                    } if used_environment else None,
                     'request': {
                         'url': url,
                         'method': method,
@@ -147,7 +228,9 @@ class ApiDefinitionViewSet(viewsets.ModelViewSet):
                 response_body=None,
                 response_time=response_time,
                 is_success=False,
-                error_message=str(e)
+                error_message=str(e),
+                environment_id=environment_id,
+                used_environment_name=used_environment.name if used_environment else None
             )
             
             return Response({

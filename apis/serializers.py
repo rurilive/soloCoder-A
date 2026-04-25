@@ -32,6 +32,8 @@ class ApiTestHistorySerializer(serializers.ModelSerializer):
         fields = [
             'id', 'api', 'api_name', 'request_url', 'request_method', 'request_headers',
             'request_body', 'response_status', 'response_headers', 'response_body',
-            'response_time', 'is_success', 'error_message', 'tested_at'
+            'response_time', 'is_success', 'error_message', 
+            'environment_id', 'used_environment_name',
+            'tested_at'
         ]
         read_only_fields = ['tested_at']
