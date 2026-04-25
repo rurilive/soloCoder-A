@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API管理平台 - YApi Style</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .sidebar { width: 280px; min-width: 280px; }
+        .main-content { flex: 1; min-width: 0; }
+        .tree-item { cursor: pointer; transition: all 0.2s; }
+        .tree-item:hover { background: #f5f7fa; }
+        .tree-item.active { background: #e8f4ff; color: #1890ff; }
+        .method-badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .method-GET { background: #e6f7ff; color: #1890ff; }
+        .method-POST { background: #f6ffed; color: #52c41a; }
+        .method-PUT { background: #fff7e6; color: #faad14; }
+        .method-DELETE { background: #fff1f0; color: #ff4d4f; }
+        .method-PATCH { background: #f9f0ff; color: #722ed1; }
+        .tab { padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab:hover { color: #1890ff; }
+        .tab.active { color: #1890ff; border-bottom-color: #1890ff; }
+        .modal-overlay { background: rgba(0,0,0,0.5); }
+        .param-table th, .param-table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
+        .param-table input, .param-table select { padding: 4px 8px; border: 1px solid #d9d9d9; border-radius: 4px; }
+        .json-editor { font-family: 'Monaco', 'Menlo', monospace; font-size: 13px; }
+        .status-success { color: #52c41a; }
+        .status-error { color: #ff4d4f; }
+        .status-warning { color: #faad14; }
+        .check-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid #f0f0f0; }
+        .check-item:hover { background: #fafafa; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen overflow-hidden">
+    <div id="app" class="flex h-full">
+        <!-- 侧边栏 -->
+        <div class="sidebar bg-white border-r border-gray-200 flex flex-col h-full">
+            <!-- Logo -->
+            <div class="h-14 border-b border-gray-200 flex items-center px-4">
+                <i class="ri-api-line text-2xl text-blue-500 mr-2"></i>
+                <span class="font-bold text-lg text-gray-800">API管理平台</span>
+            </div>
+            
+            <!-- 项目选择 -->
+            <div class="p-3 border-b border-gray-200">
+                <select id="projectSelect" class="w-full p-2 border border-gray-300 rounded text-sm">
+                    <option value="">-- 请选择项目 --</option>
+                </select>
+                <button onclick="showCreateProjectModal()" class="w-full mt-2 py-1.5 text-sm text-blue-500 border border-blue-500 rounded hover:bg-blue-50">
+                    <i class="ri-add-line mr-1"></i>新建项目
+                </button>
+            </div>
+            
+            <!-- 搜索框 -->
+            <div class="p-3 border-b border-gray-200">
+                <div class="relative">
+                    <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="searchApi" placeholder="搜索接口..." class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm">
+                </div>
+            </div>
+            
+            <!-- 接口树 -->
+            <div class="flex-1 overflow-y-auto scrollbar-thin" id="apiTree">
+                <div class="p-4 text-gray-400 text-center text-sm">
+                    请先选择项目
+                </div>
+            </div>
+            
+            <!-- 底部操作 -->
+            <div class="p-3 border-t border-gray-200 space-y-2">
+                <button onclick="showBatchTestModal()" class="w-full py-2 text-sm text-white bg-green-500 rounded hover:bg-green-600">
+                    <i class="ri-play-circle-line mr-1"></i>批量测试
+                </button>
+                <button onclick="showMockServerInfo()" class="w-full py-2 text-sm text-blue-500 border border-blue-500 rounded hover:bg-blue-50">
+                    <i class="ri-server-line mr-1"></i>Mock服务
+                </button>
+            </div>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="main-content flex flex-col h-full overflow-hidden">
+            <!-- 顶部导航 -->
+            <div class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4">
+                <div class="flex items-center">
+                    <span id="currentPageTitle" class="text-gray-800 font-medium">请选择一个接口</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button id="runTestBtn" onclick="runCurrentApiTest()" class="hidden px-4 py-1.5 text-sm text-white bg-blue-500 rounded hover:bg-blue-600">
+                        <i class="ri-play-line mr-1"></i>运行测试
+                    </button>
+                    <button id="saveApiBtn" onclick="saveCurrentApi()" class="hidden px-4 py-1.5 text-sm text-white bg-green-500 rounded hover:bg-green-600">
+                        <i class="ri-save-line mr-1"></i>保存
+                    </button>
+                    <button id="addApiBtn" onclick="showCreateApiModal()" class="hidden px-4 py-1.5 text-sm text-white bg-blue-500 rounded hover:bg-blue-600">
+                        <i class="ri-add-line mr-1"></i>添加接口
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 内容区域 -->
+            <div class="flex-1 overflow-y-auto p-4" id="contentArea">
+                <div class="flex items-center justify-center h-full text-gray-400">
+                    <div class="text-center">
+                        <i class="ri-api-line text-6xl mb-4 text-gray-300"></i>
+                        <p>请从左侧选择一个接口或创建新项目</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 创建项目模态框 -->
+    <div id="createProjectModal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-overlay absolute inset-0" onclick="closeModal('createProjectModal')"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-96">
+            <div class="flex items-center justify-between p-4 border-b">
+                <span class="font-medium text-lg">新建项目</span>
+                <button onclick="closeModal('createProjectModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">项目名称</label>
+                    <input type="text" id="projectName" class="w-full p-2 border border-gray-300 rounded" placeholder="请输入项目名称">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">基础URL</label>
+                    <input type="text" id="projectBaseUrl" class="w-full p-2 border border-gray-300 rounded" placeholder="http://localhost:3000">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">项目描述</label>
+                    <textarea id="projectDesc" rows="3" class="w-full p-2 border border-gray-300 rounded" placeholder="请输入项目描述"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 p-4 border-t">
+                <button onclick="closeModal('createProjectModal')" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">取消</button>
+                <button onclick="createProject()" class="px-4 py-2 text-sm text-white bg-blue-500 rounded hover:bg-blue-600">创建</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 创建接口模态框 -->
+    <div id="createApiModal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-overlay absolute inset-0" onclick="closeModal('createApiModal')"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
+                <span class="font-medium text-lg">添加接口</span>
+                <button onclick="closeModal('createApiModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">接口名称 <span class="text-red-500">*</span></label>
+                    <input type="text" id="newApiName" class="w-full p-2 border border-gray-300 rounded" placeholder="请输入接口名称">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">请求方法</label>
+                        <select id="newApiMethod" class="w-full p-2 border border-gray-300 rounded">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                            <option value="PATCH">PATCH</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">所属分组</label>
+                        <select id="newApiGroup" class="w-full p-2 border border-gray-300 rounded">
+                            <option value="">未分组</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">接口路径 <span class="text-red-500">*</span></label>
+                    <input type="text" id="newApiPath" class="w-full p-2 border border-gray-300 rounded" placeholder="/api/users">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">接口描述</label>
+                    <textarea id="newApiDesc" rows="2" class="w-full p-2 border border-gray-300 rounded" placeholder="请输入接口描述"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 p-4 border-t sticky bottom-0 bg-white">
+                <button onclick="closeModal('createApiModal')" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">取消</button>
+                <button onclick="createApi()" class="px-4 py-2 text-sm text-white bg-blue-500 rounded hover:bg-blue-600">创建</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 批量测试模态框 -->
+    <div id="batchTestModal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-overlay absolute inset-0" onclick="closeModal('batchTestModal')"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b">
+                <span class="font-medium text-lg">批量测试</span>
+                <button onclick="closeModal('batchTestModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+                <div class="mb-4">
+                    <div class="flex gap-2 mb-3">
+                        <button onclick="switchTestMode('group')" id="testModeGroup" class="px-4 py-2 text-sm bg-blue-500 text-white rounded">按组测试</button>
+                        <button onclick="switchTestMode('select')" id="testModeSelect" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">勾选测试</button>
+                    </div>
+                </div>
+                
+                <!-- 按组测试 -->
+                <div id="groupTestArea">
+                    <div class="mb-2 text-sm font-medium text-gray-700">选择分组：</div>
+                    <div id="groupTestList" class="border rounded max-h-60 overflow-y-auto">
+                        <!-- 分组列表 -->
+                    </div>
+                </div>
+                
+                <!-- 勾选测试 -->
+                <div id="selectTestArea" class="hidden">
+                    <div class="mb-2 text-sm font-medium text-gray-700">选择接口：</div>
+                    <div id="selectTestList" class="border rounded max-h-60 overflow-y-auto">
+                        <!-- 接口列表 -->
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-between items-center p-4 border-t">
+                <div class="text-sm text-gray-500">
+                    <span id="selectedCount">已选择 0 项</span>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeModal('batchTestModal')" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">取消</button>
+                    <button onclick="startBatchTest()" class="px-4 py-2 text-sm text-white bg-green-500 rounded hover:bg-green-600">
+                        <i class="ri-play-circle-line mr-1"></i>开始测试
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mock服务信息模态框 -->
+    <div id="mockServerModal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-overlay absolute inset-0" onclick="closeModal('mockServerModal')"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-[500px]">
+            <div class="flex items-center justify-between p-4 border-b">
+                <span class="font-medium text-lg">Mock服务</span>
+                <button onclick="closeModal('mockServerModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-4">
+                <div class="p-4 bg-blue-50 rounded-lg">
+                    <div class="text-sm font-medium text-blue-700 mb-2">Mock服务地址</div>
+                    <div class="flex items-center gap-2">
+                        <code id="mockServerUrl" class="flex-1 p-2 bg-white rounded text-sm border">/mock/{接口路径}</code>
+                        <button onclick="copyToClipboard(document.getElementById('mockServerUrl').textContent)" class="px-3 py-2 text-sm text-blue-500 border border-blue-500 rounded hover:bg-blue-50">复制</button>
+                    </div>
+                </div>
+                <div class="p-4 bg-green-50 rounded-lg">
+                    <div class="text-sm font-medium text-green-700 mb-2">使用说明</div>
+                    <ul class="text-sm text-green-600 space-y-1">
+                        <li>• 为接口创建Mock配置后，即可通过 Mock 地址访问</li>
+                        <li>• Mock地址格式：/mock/{接口原始路径}</li>
+                        <li>• 支持自定义响应状态码、响应头、响应体</li>
+                        <li>• 支持设置响应延迟，模拟网络环境</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex justify-end p-4 border-t">
+                <button onclick="closeModal('mockServerModal')" class="px-4 py-2 text-sm text-white bg-blue-500 rounded hover:bg-blue-600">确定</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 测试结果模态框 -->
+    <div id="testResultModal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-overlay absolute inset-0" onclick="closeModal('testResultModal')"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-[700px] max-h-[80vh] overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b">
+                <span class="font-medium text-lg">测试结果</span>
+                <button onclick="closeModal('testResultModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4" id="testResultContent">
+                <!-- 测试结果内容 -->
+            </div>
+            <div class="flex justify-end p-4 border-t">
+                <button onclick="closeModal('testResultModal')" class="px-4 py-2 text-sm text-white bg-blue-500 rounded hover:bg-blue-600">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let currentProject = null;
+        let currentApi = null;
+        let testMode = 'group';
+        let selectedTestItems = new Set();
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProjects();
+        });
+        
+        // API请求封装
+        async function apiRequest(url, options = {}) {
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+            const response = await fetch(API_BASE + url, { ...defaultOptions, ...options });
+            return response.json();
+        }
+        
+        // 加载项目列表
+        async function loadProjects() {
+            const projects = await apiRequest('/projects/');
+            const select = document.getElementById('projectSelect');
+            select.innerHTML = '<option value="">-- 请选择项目 --</option>';
+            projects.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = p.name;
+                select.appendChild(option);
+            });
+            
+            select.onchange = () => {
+                if (select.value) {
+                    loadProject(select.value);
+                } else {
+                    currentProject = null;
+                    document.getElementById('apiTree').innerHTML = '<div class="p-4 text-gray-400 text-center text-sm">请先选择项目</div>';
+                    document.getElementById('addApiBtn').classList.add('hidden');
+                }
+            };
+        }
+        
+        // 加载项目
+        async function loadProject(projectId) {
+            currentProject = await apiRequest(`/projects/${projectId}/`);
+            document.getElementById('addApiBtn').classList.remove('hidden');
+            await loadApiTree();
+        }
+        
+        // 加载接口树
+        async function loadApiTree() {
+            if (!currentProject) return;
+            
+            const groups = await apiRequest(`/projects/${currentProject.id}/groups/`);
+            const apis = await apiRequest(`/apis/?project=${currentProject.id}`);
+            
+            let html = '';
+            
+            groups.forEach(group => {
+                html += renderGroupTree(group, apis);
+            });
+            
+            const ungroupedApis = apis.filter(a => !a.group);
+            if (ungroupedApis.length > 0) {
+                html += `
+                    <div class="tree-item px-3 py-2 text-sm font-medium text-gray-600">
+                        <i class="ri-folder-line mr-2"></i>未分组
+                    </div>
+                `;
+                ungroupedApis.forEach(api => {
+                    html += renderApiItem(api);
+                });
+            }
+            
+            if (groups.length === 0 && ungroupedApis.length === 0) {
+                html = '<div class="p-4 text-gray-400 text-center text-sm">暂无接口，点击"添加接口"创建</div>';
+            }
+            
+            document.getElementById('apiTree').innerHTML = html;
+        }
+        
+        // 渲染分组树
+        function renderGroupTree(group, allApis, level = 0) {
+            let html = '';
+            const groupApis = allApis.filter(a => a.group === group.id);
+            
+            html += `
+                <div class="tree-item px-3 py-2 text-sm font-medium text-gray-600" style="padding-left: ${12 + level * 16}px">
+                    <i class="ri-folder-line mr-2"></i>${group.name}
+                    <button onclick="event.stopPropagation(); addGroupApi(${group.id})" class="ml-2 text-blue-500 hover:text-blue-600">
+                        <i class="ri-add-line"></i>
+                    </button>
+                </div>
+            `;
+            
+            groupApis.forEach(api => {
+                html += renderApiItem(api, level + 1);
+            });
+            
+            if (group.children) {
+                group.children.forEach(child => {
+                    html += renderGroupTree(child, allApis, level + 1);
+                });
+            }
+            
+            return html;
+        }
+        
+        // 渲染接口项
+        function renderApiItem(api, level = 0) {
+            return `
+                <div class="tree-item px-3 py-2 text-sm flex items-center gap-2 ${currentApi?.id === api.id ? 'active' : ''}" 
+                     style="padding-left: ${12 + level * 16}px"
+                     onclick="loadApiDetail(${api.id})">
+                    <span class="method-badge method-${api.method}">${api.method}</span>
+                    <span class="truncate">${api.name}</span>
+                    <span class="text-gray-400 text-xs ml-auto">${api.path}</span>
+                </div>
+            `;
+        }
+        
+        // 加载接口详情
+        async function loadApiDetail(apiId) {
+            currentApi = await apiRequest(`/apis/${apiId}/`);
+            document.getElementById('runTestBtn').classList.remove('hidden');
+            document.getElementById('saveApiBtn').classList.remove('hidden');
+            document.getElementById('currentPageTitle').textContent = currentApi.name;
+            
+            renderApiDetail();
+        }
+        
+        // 渲染接口详情
+        function renderApiDetail() {
+            if (!currentApi) return;
+            
+            const api = currentApi;
+            const content = `
+                <div class="bg-white rounded-lg shadow">
+                    <!-- 基本信息 -->
+                    <div class="p-4 border-b">
+                        <div class="flex items-center gap-3 mb-3">
+                            <span class="method-badge method-${api.method} text-base px-3 py-1">${api.method}</span>
+                            <input type="text" id="editApiPath" value="${api.path}" class="flex-1 p-2 border border-gray-300 rounded text-lg font-mono">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">接口名称</label>
+                                <input type="text" id="editApiName" value="${api.name}" class="w-full p-2 border border-gray-300 rounded">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">所属分组</label>
+                                <select id="editApiGroup" class="w-full p-2 border border-gray-300 rounded">
+                                    <option value="">未分组</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">接口描述</label>
+                            <textarea id="editApiDesc" rows="2" class="w-full p-2 border border-gray-300 rounded">${api.description || ''}</textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab切换 -->
+                    <div class="flex border-b">
+                        <div class="tab active" onclick="switchTab('params')" data-tab="params">请求参数</div>
+                        <div class="tab" onclick="switchTab('headers')" data-tab="headers">请求头</div>
+                        <div class="tab" onclick="switchTab('body')" data-tab="body">请求体</div>
+                        <div class="tab" onclick="switchTab('response')" data-tab="response">响应示例</div>
+                        <div class="tab" onclick="switchTab('mock')" data-tab="mock">Mock配置</div>
+                        <div class="tab" onclick="switchTab('testcase')" data-tab="testcase">测试用例</div>
+                        <div class="tab" onclick="switchTab('history')" data-tab="history">测试历史</div>
+                    </div>
+                    
+                    <!-- Tab内容 -->
+                    <div class="p-4">
+                        <!-- 请求参数 -->
+                        <div id="tab-params" class="tab-content">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-sm font-medium text-gray-700">Query Parameters</span>
+                                <button onclick="addParamRow('params')" class="text-sm text-blue-500 hover:text-blue-600">
+                                    <i class="ri-add-line mr-1"></i>添加参数
+                                </button>
+                            </div>
+                            <table class="w-full param-table text-sm">
+                                <thead>
+                                    <tr class="bg-gray-50">
+                                        <th class="text-left w-12">启用</th>
+                                        <th class="text-left">参数名</th>
+                                        <th class="text-left">值</th>
+                                        <th class="text-left">描述</th>
+                                        <th class="text-left w-16">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="paramsTableBody">
+                                    ${renderParamRows(api.request_params || [], 'params')}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 请求头 -->
+                        <div id="tab-headers" class="tab-content hidden">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-sm font-medium text-gray-700">Headers</span>
+                                <button onclick="addParamRow('headers')" class="text-sm text-blue-500 hover:text-blue-600">
+                                    <i class="ri-add-line mr-1"></i>添加头
+                                </button>
+                            </div>
+                            <table class="w-full param-table text-sm">
+                                <thead>
+                                    <tr class="bg-gray-50">
+                                        <th class="text-left w-12">启用</th>
+                                        <th class="text-left">名称</th>
+                                        <th class="text-left">值</th>
+                                        <th class="text-left">描述</th>
+                                        <th class="text-left w-16">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="headersTableBody">
+                                    ${renderParamRows(api.request_headers || [], 'headers')}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 请求体 -->
+                        <div id="tab-body" class="tab-content hidden">
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">请求体类型</label>
+                                <select id="editBodyType" class="p-2 border border-gray-300 rounded">
+                                    <option value="json" ${api.request_body_type === 'json' ? 'selected' : ''}>JSON</option>
+                                    <option value="form" ${api.request_body_type === 'form' ? 'selected' : ''}>Form Data</option>
+                                    <option value="x-www-form-urlencoded" ${api.request_body_type === 'x-www-form-urlencoded' ? 'selected' : ''}>x-www-form-urlencoded</option>
+                                    <option value="raw" ${api.request_body_type === 'raw' ? 'selected' : ''}>Raw</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">请求体内容 (JSON格式)</label>
+                                <textarea id="editRequestBody" rows="8" class="w-full p-3 border border-gray-300 rounded font-mono text-sm json-editor">${JSON.stringify(api.request_body || {}, null, 2)}</textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- 响应示例 -->
+                        <div id="tab-response" class="tab-content hidden">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-sm font-medium text-gray-700">响应示例</span>
+                                <button onclick="addResponseExample()" class="text-sm text-blue-500 hover:text-blue-600">
+                                    <i class="ri-add-line mr-1"></i>添加示例
+                                </button>
+                            </div>
+                            <div id="responseExamples">
+                                ${renderResponseExamples(api.response_examples || [])}
+                            </div>
+                        </div>
+                        
+                        <!-- Mock配置 -->
+                        <div id="tab-mock" class="tab-content hidden">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-sm font-medium text-gray-700">Mock配置列表</span>
+                                <button onclick="addMockConfig()" class="text-sm text-white bg-blue-500 px-3 py-1 rounded hover:bg-blue-600">
+                                    <i class="ri-add-line mr-1"></i>添加Mock
+                                </button>
+                            </div>
+                            <div id="mockConfigList">
+                                加载中...
+                            </div>
+                        </div>
+                        
+                        <!-- 测试用例 -->
+                        <div id="tab-testcase" class="tab-content hidden">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-sm font-medium text-gray-700">测试用例列表</span>
+                                <button onclick="addTestCase()" class="text-sm text-white bg-blue-500 px-3 py-1 rounded hover:bg-blue-600">
+                                    <i class="ri-add-line mr-1"></i>添加用例
+                                </button>
+                            </div>
+                            <div id="testCaseList">
+                                加载中...
+                            </div>
+                        </div>
+                        
+                        <!-- 测试历史 -->
+                        <div id="tab-history" class="tab-content hidden">
+                            <div class="text-sm font-medium text-gray-700 mb-3">测试历史 (最近20条)</div>
+                            <div id="testHistoryList">
+                                加载中...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('contentArea').innerHTML = content;
+            
+            loadMockConfigs();
+            loadTestCases();
+            loadTestHistory();
+            loadGroupsForSelect();
+        }
+        
+        // 渲染参数行
+        function renderParamRows(params, type) {
+            if (!params || params.length === 0) {
+                return `<tr><td colspan="5" class="text-center text-gray-400 py-4">暂无数据</td></tr>`;
+            }
+            return params.map((p, i) => `
+                <tr>
+                    <td><input type="checkbox" ${p.enabled !== false ? 'checked' : ''} data-index="${i}" data-type="${type}" class="param-enabled"></td>
+                    <td><input type="text" value="${p.key || ''}" data-index="${i}" data-type="${type}" data-field="key" class="w-full param-input"></td>
+                    <td><input type="text" value="${p.value || ''}" data-index="${i}" data-type="${type}" data-field="value" class="w-full param-input"></td>
+                    <td><input type="text" value="${p.description || ''}" data-index="${i}" data-type="${type}" data-field="description" class="w-full param-input"></td>
+                    <td><button onclick="removeParamRow(${i}, '${type}')" class="text-red-500 hover:text-red-600"><i class="ri-delete-bin-line"></i></button></td>
+                </tr>
+            `).join('');
+        }
+        
+        // 渲染响应示例
+        function renderResponseExamples(examples) {
+            if (!examples || examples.length === 0) {
+                return '<div class="text-gray-400 text-center py-4">暂无响应示例</div>';
+            }
+            return examples.map((ex, i) => `
+                <div class="border rounded mb-3">
+                    <div class="flex items-center justify-between p-3 bg-gray-50 border-b">
+                        <div class="flex items-center gap-3">
+                            <span class="font-medium">${ex.name || '示例 ' + (i+1)}</span>
+                            <span class="text-sm text-gray-500">状态码: ${ex.status_code || 200}</span>
+                        </div>
+                        <button onclick="removeResponseExample(${i})" class="text-red-500 hover:text-red-600">
+                            <i class="ri-delete-bin-line"></i>
+                        </button>
+                    </div>
+                    <pre class="p-3 text-sm bg-gray-900 text-green-400 overflow-x-auto">${JSON.stringify(ex.body || {}, null, 2)}</pre>
+                </div>
+            `).join('');
+        }
+        
+        // 加载Mock配置
+        async function loadMockConfigs() {
+            if (!currentApi) return;
+            const configs = await apiRequest(`/mock-configs/?api=${currentApi.id}`);
+            const list = document.getElementById('mockConfigList');
+            
+            if (configs.length === 0) {
+                list.innerHTML = '<div class="text-gray-400 text-center py-4">暂无Mock配置</div>';
+                return;
+            }
+            
+            list.innerHTML = configs.map(c => `
+                <div class="border rounded p-3 mb-3 ${c.is_default ? 'border-blue-500 bg-blue-50' : ''}">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium">${c.name}</span>
+                            ${c.is_default ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded">默认</span>' : ''}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            ${!c.is_default ? `<button onclick="setDefaultMock(${c.id})" class="text-sm text-blue-500">设为默认</button>` : ''}
+                            <button onclick="editMockConfig(${c.id})" class="text-sm text-gray-500"><i class="ri-edit-line"></i></button>
+                            <button onclick="deleteMockConfig(${c.id})" class="text-sm text-red-500"><i class="ri-delete-bin-line"></i></button>
+                        </div>
+                    </div>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <div>状态码: ${c.status_code}</div>
+                        <div>延迟: ${c.delay_ms}ms</div>
+                        <div>响应体: <pre class="inline-block bg-gray-100 p-1 rounded text-xs max-w-xs truncate">${JSON.stringify(c.response_body || {})}</pre></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 加载测试用例
+        async function loadTestCases() {
+            if (!currentApi) return;
+            const cases = await apiRequest(`/test-cases/?api=${currentApi.id}`);
+            const list = document.getElementById('testCaseList');
+            
+            if (cases.length === 0) {
+                list.innerHTML = '<div class="text-gray-400 text-center py-4">暂无测试用例</div>';
+                return;
+            }
+            
+            list.innerHTML = cases.map(c => `
+                <div class="border rounded p-3 mb-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-medium">${c.name}</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="runTestCase(${c.id})" class="text-sm text-green-500"><i class="ri-play-circle-line mr-1"></i>运行</button>
+                            <button onclick="editTestCase(${c.id})" class="text-sm text-gray-500"><i class="ri-edit-line"></i></button>
+                            <button onclick="deleteTestCase(${c.id})" class="text-sm text-red-500"><i class="ri-delete-bin-line"></i></button>
+                        </div>
+                    </div>
+                    <div class="text-sm text-gray-600">
+                        期望状态码: ${c.expected_status_code} | 描述: ${c.description || '无'}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 加载测试历史
+        async function loadTestHistory() {
+            if (!currentApi) return;
+            const history = await apiRequest(`/test-history/?api=${currentApi.id}`);
+            const list = document.getElementById('testHistoryList');
+            
+            if (history.length === 0) {
+                list.innerHTML = '<div class="text-gray-400 text-center py-4">暂无测试历史</div>';
+                return;
+            }
+            
+            list.innerHTML = history.map(h => `
+                <div class="flex items-center justify-between p-3 border-b hover:bg-gray-50 cursor-pointer" onclick="showTestResultDetail(${h.id})">
+                    <div class="flex items-center gap-3">
+                        <span class="${h.is_success ? 'text-green-500' : 'text-red-500'}">
+                            <i class="${h.is_success ? 'ri-checkbox-circle-fill' : 'ri-close-circle-fill'}"></i>
+                        </span>
+                        <div>
+                            <div class="font-medium">${h.request_method} ${h.request_url}</div>
+                            <div class="text-sm text-gray-500">${new Date(h.tested_at).toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-medium ${h.response_status >= 200 && h.response_status < 300 ? 'text-green-500' : 'text-red-500'}">
+                            ${h.response_status || '错误'}
+                        </div>
+                        <div class="text-sm text-gray-500">${h.response_time?.toFixed(2) || 0}ms</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 加载分组到下拉框
+        async function loadGroupsForSelect() {
+            if (!currentProject) return;
+            const groups = await apiRequest(`/projects/${currentProject.id}/all_groups/`);
+            const selects = ['newApiGroup', 'editApiGroup'];
+            selects.forEach(id => {
+                const select = document.getElementById(id);
+                if (select) {
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">未分组</option>';
+                    groups.forEach(g => {
+                        const option = document.createElement('option');
+                        option.value = g.id;
+                        option.textContent = g.name;
+                        if (currentApi?.group === g.id || currentValue == g.id) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                }
+            });
+        }
+        
+        // Tab切换
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+        }
+        
+        // 添加参数行
+        function addParamRow(type) {
+            const bodyId = type === 'params' ? 'paramsTableBody' : 'headersTableBody';
+            const tbody = document.getElementById(bodyId);
+            const params = type === 'params' ? (currentApi.request_params || []) : (currentApi.request_headers || []);
+            params.push({ enabled: true, key: '', value: '', description: '' });
+            
+            if (type === 'params') {
+                currentApi.request_params = params;
+            } else {
+                currentApi.request_headers = params;
+            }
+            
+            tbody.innerHTML = renderParamRows(params, type);
+        }
+        
+        // 移除参数行
+        function removeParamRow(index, type) {
+            const params = type === 'params' ? (currentApi.request_params || []) : (currentApi.request_headers || []);
+            params.splice(index, 1);
+            
+            if (type === 'params') {
+                currentApi.request_params = params;
+            } else {
+                currentApi.request_headers = params;
+            }
+            
+            const bodyId = type === 'params' ? 'paramsTableBody' : 'headersTableBody';
+            document.getElementById(bodyId).innerHTML = renderParamRows(params, type);
+        }
+        
+        // 保存当前接口
+        async function saveCurrentApi() {
+            if (!currentApi) return;
+            
+            const data = {
+                name: document.getElementById('editApiName').value,
+                path: document.getElementById('editApiPath').value,
+                method: currentApi.method,
+                description: document.getElementById('editApiDesc').value,
+                group: document.getElementById('editApiGroup').value || null,
+                request_params: currentApi.request_params || [],
+                request_headers: currentApi.request_headers || [],
+                request_body_type: document.getElementById('editBodyType').value,
+                request_body: {},
+                response_examples: currentApi.response_examples || [],
+                is_active: true
+            };
+            
+            try {
+                data.request_body = JSON.parse(document.getElementById('editRequestBody').value);
+            } catch (e) {
+                data.request_body = {};
+            }
+            
+            document.querySelectorAll('.param-enabled').forEach(cb => {
+                const type = cb.dataset.type;
+                const index = parseInt(cb.dataset.index);
+                if (type === 'params' && currentApi.request_params[index]) {
+                    currentApi.request_params[index].enabled = cb.checked;
+                } else if (type === 'headers' && currentApi.request_headers[index]) {
+                    currentApi.request_headers[index].enabled = cb.checked;
+                }
+            });
+            
+            document.querySelectorAll('.param-input').forEach(input => {
+                const type = input.dataset.type;
+                const index = parseInt(input.dataset.index);
+                const field = input.dataset.field;
+                if (type === 'params' && currentApi.request_params[index]) {
+                    currentApi.request_params[index][field] = input.value;
+                } else if (type === 'headers' && currentApi.request_headers[index]) {
+                    currentApi.request_headers[index][field] = input.value;
+                }
+            });
+            
+            data.request_params = currentApi.request_params;
+            data.request_headers = currentApi.request_headers;
+            
+            await apiRequest(`/apis/${currentApi.id}/`, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+            });
+            
+            alert('保存成功');
+            await loadApiTree();
+        }
+        
+        // 运行当前接口测试
+        async function runCurrentApiTest() {
+            if (!currentApi) return;
+            
+            const result = await apiRequest(`/apis/${currentApi.id}/test/`, {
+                method: 'POST'
+            });
+            
+            showTestResult(result);
+            await loadTestHistory();
+        }
+        
+        // 显示测试结果
+        function showTestResult(result) {
+            const data = result.data || result;
+            const content = `
+                <div class="space-y-4">
+                    <div class="flex items-center gap-4 p-4 ${data.is_success ? 'bg-green-50' : 'bg-red-50'} rounded-lg">
+                        <div class="text-4xl ${data.is_success ? 'text-green-500' : 'text-red-500'}">
+                            <i class="${data.is_success ? 'ri-checkbox-circle-fill' : 'ri-close-circle-fill'}"></i>
+                        </div>
+                        <div>
+                            <div class="text-xl font-medium ${data.is_success ? 'text-green-700' : 'text-red-700'}">
+                                ${data.is_success ? '测试成功' : '测试失败'}
+                            </div>
+                            <div class="text-sm ${data.is_success ? 'text-green-600' : 'text-red-600'}">
+                                状态码: ${data.response?.status || '错误'} | 耗时: ${data.response?.time_ms?.toFixed(2) || 0}ms
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="border rounded-lg overflow-hidden">
+                        <div class="bg-gray-50 px-4 py-2 font-medium border-b">请求信息</div>
+                        <div class="p-4 space-y-2">
+                            <div><span class="font-medium">URL:</span> ${data.request?.url || '-'}</div>
+                            <div><span class="font-medium">方法:</span> ${data.request?.method || '-'}</div>
+                            <div><span class="font-medium">请求头:</span> <pre class="inline-block bg-gray-100 p-1 rounded text-xs">${JSON.stringify(data.request?.headers || {})}</pre></div>
+                        </div>
+                    </div>
+                    
+                    <div class="border rounded-lg overflow-hidden">
+                        <div class="bg-gray-50 px-4 py-2 font-medium border-b">响应信息</div>
+                        <div class="p-4">
+                            <div class="mb-2"><span class="font-medium">状态码:</span> ${data.response?.status || '-'}</div>
+                            <div class="mb-2"><span class="font-medium">响应头:</span> <pre class="inline-block bg-gray-100 p-1 rounded text-xs">${JSON.stringify(data.response?.headers || {})}</pre></div>
+                            <div>
+                                <span class="font-medium">响应体:</span>
+                                <pre class="mt-2 p-3 bg-gray-900 text-green-400 rounded text-sm overflow-x-auto max-h-64">${data.response?.body || '无'}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('testResultContent').innerHTML = content;
+            document.getElementById('testResultModal').classList.remove('hidden');
+        }
+        
+        // 模态框控制
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+        
+        function showCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.remove('hidden');
+        }
+        
+        async function createProject() {
+            const name = document.getElementById('projectName').value;
+            if (!name) {
+                alert('请输入项目名称');
+                return;
+            }
+            
+            const data = {
+                name: name,
+                base_url: document.getElementById('projectBaseUrl').value,
+                description: document.getElementById('projectDesc').value
+            };
+            
+            await apiRequest('/projects/', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            
+            closeModal('createProjectModal');
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectBaseUrl').value = '';
+            document.getElementById('projectDesc').value = '';
+            await loadProjects();
+        }
+        
+        function showCreateApiModal() {
+            if (!currentProject) {
+                alert('请先选择项目');
+                return;
+            }
+            loadGroupsForSelect();
+            document.getElementById('createApiModal').classList.remove('hidden');
+        }
+        
+        async function createApi() {
+            const name = document.getElementById('newApiName').value;
+            const path = document.getElementById('newApiPath').value;
+            
+            if (!name || !path) {
+                alert('请填写接口名称和路径');
+                return;
+            }
+            
+            const data = {
+                project: currentProject.id,
+                name: name,
+                path: path,
+                method: document.getElementById('newApiMethod').value,
+                group: document.getElementById('newApiGroup').value || null,
+                description: document.getElementById('newApiDesc').value,
+                request_params: [],
+                request_headers: [],
+                request_body: {},
+                response_examples: [],
+                is_active: true
+            };
+            
+            await apiRequest('/apis/', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            
+            closeModal('createApiModal');
+            document.getElementById('newApiName').value = '';
+            document.getElementById('newApiPath').value = '';
+            document.getElementById('newApiDesc').value = '';
+            await loadApiTree();
+        }
+        
+        function addGroupApi(groupId) {
+            document.getElementById('newApiGroup').value = groupId;
+            showCreateApiModal();
+        }
+        
+        // Mock配置操作
+        function addMockConfig() {
+            const name = prompt('请输入Mock配置名称:');
+            if (!name) return;
+            
+            const data = {
+                api: currentApi.id,
+                name: name,
+                status_code: 200,
+                response_headers: { 'Content-Type': 'application/json' },
+                response_body: { code: 0, message: 'success', data: {} },
+                delay_ms: 0,
+                is_active: true,
+                is_default: false
+            };
+            
+            apiRequest('/mock-configs/', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            }).then(() => loadMockConfigs());
+        }
+        
+        async function setDefaultMock(id) {
+            await apiRequest(`/mock-configs/${id}/set_default/`, { method: 'POST' });
+            loadMockConfigs();
+        }
+        
+        async function deleteMockConfig(id) {
+            if (confirm('确定删除此Mock配置吗？')) {
+                await apiRequest(`/mock-configs/${id}/`, { method: 'DELETE' });
+                loadMockConfigs();
+            }
+        }
+        
+        function editMockConfig(id) {
+            alert('编辑Mock配置功能可在详情页直接修改JSON，或扩展此功能');
+        }
+        
+        // 测试用例操作
+        function addTestCase() {
+            const name = prompt('请输入测试用例名称:');
+            if (!name) return;
+            
+            const data = {
+                api: currentApi.id,
+                name: name,
+                description: '',
+                request_params: currentApi.request_params || [],
+                request_headers: currentApi.request_headers || [],
+                request_body: currentApi.request_body || {},
+                expected_status_code: 200,
+                expected_response: {},
+                assertions: [],
+                is_active: true
+            };
+            
+            apiRequest('/test-cases/', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            }).then(() => loadTestCases());
+        }
+        
+        async function runTestCase(id) {
+            const result = await apiRequest(`/test-cases/${id}/run/`, { method: 'POST' });
+            showTestResult(result);
+        }
+        
+        async function deleteTestCase(id) {
+            if (confirm('确定删除此测试用例吗？')) {
+                await apiRequest(`/test-cases/${id}/`, { method: 'DELETE' });
+                loadTestCases();
+            }
+        }
+        
+        function editTestCase(id) {
+            alert('编辑测试用例功能可扩展实现');
+        }
+        
+        // 响应示例操作
+        function addResponseExample() {
+            const name = prompt('请输入示例名称:');
+            if (!name) return;
+            
+            if (!currentApi.response_examples) {
+                currentApi.response_examples = [];
+            }
+            
+            currentApi.response_examples.push({
+                name: name,
+                status_code: 200,
+                body: { code: 0, message: 'success' }
+            });
+            
+            renderApiDetail();
+        }
+        
+        function removeResponseExample(index) {
+            if (currentApi.response_examples) {
+                currentApi.response_examples.splice(index, 1);
+                renderApiDetail();
+            }
+        }
+        
+        // 批量测试
+        function showBatchTestModal() {
+            if (!currentProject) {
+                alert('请先选择项目');
+                return;
+            }
+            loadBatchTestData();
+            document.getElementById('batchTestModal').classList.remove('hidden');
+        }
+        
+        async function loadBatchTestData() {
+            const groups = await apiRequest(`/projects/${currentProject.id}/all_groups/`);
+            const apis = await apiRequest(`/apis/?project=${currentProject.id}`);
+            
+            selectedTestItems = new Set();
+            updateSelectedCount();
+            
+            document.getElementById('groupTestList').innerHTML = groups.length ? groups.map(g => `
+                <div class="check-item">
+                    <input type="checkbox" class="group-checkbox" data-id="${g.id}" onchange="toggleGroupItem('group', ${g.id})">
+                    <i class="ri-folder-line text-yellow-500 mr-2"></i>
+                    <span>${g.name}</span>
+                    <span class="text-gray-400 text-xs ml-auto">${apis.filter(a => a.group === g.id).length} 个接口</span>
+                </div>
+            `).join('') : '<div class="p-4 text-center text-gray-400">暂无分组</div>';
+            
+            document.getElementById('selectTestList').innerHTML = apis.length ? apis.map(a => `
+                <div class="check-item">
+                    <input type="checkbox" class="api-checkbox" data-id="${a.id}" onchange="toggleGroupItem('api', ${a.id})">
+                    <span class="method-badge method-${a.method} mr-2">${a.method}</span>
+                    <span class="flex-1">${a.name}</span>
+                    <span class="text-gray-400 text-xs">${a.path}</span>
+                </div>
+            `).join('') : '<div class="p-4 text-center text-gray-400">暂无接口</div>';
+        }
+        
+        function switchTestMode(mode) {
+            testMode = mode;
+            selectedTestItems = new Set();
+            updateSelectedCount();
+            
+            document.getElementById('testModeGroup').className = `px-4 py-2 text-sm rounded ${mode === 'group' ? 'bg-blue-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`;
+            document.getElementById('testModeSelect').className = `px-4 py-2 text-sm rounded ${mode === 'select' ? 'bg-blue-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`;
+            
+            document.getElementById('groupTestArea').classList.toggle('hidden', mode !== 'group');
+            document.getElementById('selectTestArea').classList.toggle('hidden', mode !== 'select');
+        }
+        
+        function toggleGroupItem(type, id) {
+            const key = `${type}-${id}`;
+            if (selectedTestItems.has(key)) {
+                selectedTestItems.delete(key);
+            } else {
+                selectedTestItems.add(key);
+            }
+            updateSelectedCount();
+        }
+        
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = `已选择 ${selectedTestItems.size} 项`;
+        }
+        
+        async function startBatchTest() {
+            if (selectedTestItems.size === 0) {
+                alert('请至少选择一项');
+                return;
+            }
+            
+            let endpoint, data;
+            
+            if (testMode === 'group') {
+                const groupIds = Array.from(selectedTestItems).map(k => parseInt(k.split('-')[1]));
+                endpoint = '/batch-tests/by_groups/';
+                data = { project_id: currentProject.id, group_ids: groupIds };
+            } else {
+                const apiIds = Array.from(selectedTestItems).map(k => parseInt(k.split('-')[1]));
+                endpoint = '/batch-tests/by_apis/';
+                data = { project_id: currentProject.id, api_ids: apiIds };
+            }
+            
+            const result = await apiRequest(endpoint, {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            
+            closeModal('batchTestModal');
+            alert(`测试已开始，测试运行ID: ${result.data?.test_run_id}\n请稍后查看测试结果`);
+        }
+        
+        // 工具函数
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('已复制到剪贴板');
+            });
+        }
+        
+        function showMockServerInfo() {
+            document.getElementById('mockServerModal').classList.remove('hidden');
+        }
+        
+        async function showTestResultDetail(id) {
+            const history = await apiRequest(`/test-history/${id}/`);
+            showTestResult({
+                is_success: history.is_success,
+                request: {
+                    url: history.request_url,
+                    method: history.request_method,
+                    headers: history.request_headers
+                },
+                response: {
+                    status: history.response_status,
+                    headers: history.response_headers,
+                    body: history.response_body,
+                    time_ms: history.response_time
+                }
+            });
+        }
+    </script>
+</body>
+</html>
