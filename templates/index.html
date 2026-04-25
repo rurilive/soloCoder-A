@@ -548,17 +548,40 @@
     
     <div id="exportDocumentModal" class="fixed inset-0 z-50 hidden">
         <div class="modal-overlay absolute inset-0" onclick="closeModal('exportDocumentModal')"></div>
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-[500px]">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
             <div class="flex items-center justify-between p-4 border-b">
                 <span class="font-medium text-lg" id="exportModalTitle">导出API文档</span>
                 <button onclick="closeModal('exportDocumentModal')" class="text-gray-400 hover:text-gray-600">
                     <i class="ri-close-line text-xl"></i>
                 </button>
             </div>
-            <div class="p-4 space-y-4">
+            <div class="flex-1 overflow-y-auto p-4 space-y-4">
                 <input type="hidden" id="exportType">
                 <input type="hidden" id="exportApiId">
                 <input type="hidden" id="exportProjectId">
+                
+                <div id="exportModeArea">
+                    <div class="flex gap-2 mb-3">
+                        <button onclick="switchExportMode('all')" id="exportModeAll" class="px-4 py-2 text-sm bg-blue-500 text-white rounded">全部导出</button>
+                        <button onclick="switchExportMode('select')" id="exportModeSelect" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">选择导出</button>
+                    </div>
+                </div>
+                
+                <div id="exportSelectArea" class="hidden">
+                    <div class="mb-2 text-sm font-medium text-gray-700">选择要导出的接口：</div>
+                    <div class="border rounded-lg p-3 bg-gray-50">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-gray-500">
+                                <label class="cursor-pointer">
+                                    <input type="checkbox" id="selectAllApis" onchange="toggleSelectAllApis()" class="mr-1">
+                                    全选
+                                </label>
+                            </span>
+                            <span id="exportSelectedCount" class="text-xs text-gray-500">已选择 0 个接口</span>
+                        </div>
+                        <div id="exportApiList" class="max-h-48 overflow-y-auto space-y-1"></div>
+                    </div>
+                </div>
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">选择导出格式</label>
@@ -617,6 +640,9 @@
         let currentGlobalConfigs = [];
         let testMode = 'group';
         let selectedTestItems = new Set();
+        let exportMode = 'all';
+        let selectedExportApiIds = new Set();
+        let currentProjectApis = [];
         
         document.addEventListener('DOMContentLoaded', () => {
             loadProjects();
@@ -2027,6 +2053,18 @@
             document.getElementById('exportProjectId').value = currentProject.id;
             document.getElementById('exportApiId').value = '';
             document.getElementById('exportPreviewArea').classList.add('hidden');
+            
+            exportMode = 'all';
+            selectedExportApiIds = new Set();
+            
+            document.getElementById('exportModeArea').classList.remove('hidden');
+            document.getElementById('exportModeAll').className = 'px-4 py-2 text-sm bg-blue-500 text-white rounded';
+            document.getElementById('exportModeSelect').className = 'px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50';
+            document.getElementById('exportSelectArea').classList.add('hidden');
+            document.getElementById('exportSelectedCount').textContent = '已选择 0 个接口';
+            
+            loadExportApiList();
+            
             document.getElementById('exportDocumentModal').classList.remove('hidden');
         }
         
@@ -2040,7 +2078,101 @@
             document.getElementById('exportApiId').value = currentApi.id;
             document.getElementById('exportProjectId').value = currentProject?.id || '';
             document.getElementById('exportPreviewArea').classList.add('hidden');
+            
+            document.getElementById('exportModeArea').classList.add('hidden');
+            document.getElementById('exportSelectArea').classList.add('hidden');
+            
             document.getElementById('exportDocumentModal').classList.remove('hidden');
+        }
+        
+        async function loadExportApiList() {
+            if (!currentProject) return;
+            
+            const apis = await apiRequest(`/apis/?project=${currentProject.id}`);
+            currentProjectApis = apis;
+            selectedExportApiIds = new Set();
+            
+            const methodColors = {
+                'GET': 'method-get',
+                'POST': 'method-post',
+                'PUT': 'method-put',
+                'DELETE': 'method-delete',
+                'PATCH': 'method-patch',
+                'HEAD': 'method-head',
+                'OPTIONS': 'method-options'
+            };
+            
+            if (apis.length === 0) {
+                document.getElementById('exportApiList').innerHTML = '<div class="p-4 text-center text-gray-400 text-sm">暂无接口</div>';
+                return;
+            }
+            
+            document.getElementById('exportApiList').innerHTML = apis.map(a => `
+                <label class="flex items-center gap-2 p-2 rounded hover:bg-gray-100 cursor-pointer">
+                    <input type="checkbox" class="export-api-checkbox" data-id="${a.id}" onchange="toggleExportApi(${a.id})">
+                    <span class="method-badge ${methodColors[a.method] || 'method-get'}">${a.method}</span>
+                    <span class="flex-1 text-sm">${a.name}</span>
+                    <span class="text-gray-400 text-xs">${a.path}</span>
+                </label>
+            `).join('');
+            
+            updateExportSelectedCount();
+        }
+        
+        function switchExportMode(mode) {
+            exportMode = mode;
+            
+            document.getElementById('exportModeAll').className = `px-4 py-2 text-sm rounded ${mode === 'all' ? 'bg-blue-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`;
+            document.getElementById('exportModeSelect').className = `px-4 py-2 text-sm rounded ${mode === 'select' ? 'bg-blue-500 text-white' : 'border border-gray-300 hover:bg-gray-50'}`;
+            
+            document.getElementById('exportSelectArea').classList.toggle('hidden', mode !== 'select');
+            document.getElementById('exportPreviewArea').classList.add('hidden');
+        }
+        
+        function toggleExportApi(apiId) {
+            if (selectedExportApiIds.has(apiId)) {
+                selectedExportApiIds.delete(apiId);
+            } else {
+                selectedExportApiIds.add(apiId);
+            }
+            updateExportSelectedCount();
+            updateSelectAllCheckbox();
+        }
+        
+        function toggleSelectAllApis() {
+            const selectAllCheckbox = document.getElementById('selectAllApis');
+            if (selectAllCheckbox.checked) {
+                currentProjectApis.forEach(api => {
+                    selectedExportApiIds.add(api.id);
+                });
+                document.querySelectorAll('.export-api-checkbox').forEach(cb => {
+                    cb.checked = true;
+                });
+            } else {
+                selectedExportApiIds = new Set();
+                document.querySelectorAll('.export-api-checkbox').forEach(cb => {
+                    cb.checked = false;
+                });
+            }
+            updateExportSelectedCount();
+        }
+        
+        function updateExportSelectedCount() {
+            document.getElementById('exportSelectedCount').textContent = `已选择 ${selectedExportApiIds.size} 个接口`;
+        }
+        
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllApis');
+            if (currentProjectApis.length > 0 && selectedExportApiIds.size === currentProjectApis.length) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else if (selectedExportApiIds.size > 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            }
         }
         
         function getSelectedFormat() {
@@ -2055,7 +2187,17 @@
             
             if (exportType === 'project') {
                 const projectId = document.getElementById('exportProjectId').value;
-                url = `/apis/batch_document/?project=${projectId}&doc_format=${format}`;
+                
+                if (exportMode === 'select') {
+                    if (selectedExportApiIds.size === 0) {
+                        alert('请至少选择一个接口');
+                        return null;
+                    }
+                    const apiIdsStr = Array.from(selectedExportApiIds).join(',');
+                    url = `/apis/batch_document/?api_ids=${apiIdsStr}&doc_format=${format}`;
+                } else {
+                    url = `/apis/batch_document/?project=${projectId}&doc_format=${format}`;
+                }
             } else {
                 const apiId = document.getElementById('exportApiId').value;
                 url = `/apis/${apiId}/document/?doc_format=${format}`;
@@ -2065,8 +2207,15 @@
         }
         
         async function previewDocument() {
+            const exportType = document.getElementById('exportType').value;
+            if (exportType === 'project' && exportMode === 'select' && selectedExportApiIds.size === 0) {
+                alert('请至少选择一个接口');
+                return;
+            }
+            
             const format = getSelectedFormat();
             const data = await fetchDocumentData();
+            if (!data) return;
             
             const previewArea = document.getElementById('exportPreviewArea');
             const preview = document.getElementById('exportPreview');
@@ -2081,29 +2230,53 @@
         }
         
         async function exportDocument() {
-            const format = getSelectedFormat();
             const exportType = document.getElementById('exportType').value;
+            if (exportType === 'project' && exportMode === 'select' && selectedExportApiIds.size === 0) {
+                alert('请至少选择一个接口');
+                return;
+            }
+            
+            const format = getSelectedFormat();
             const data = await fetchDocumentData();
+            if (!data) return;
             
             let content, filename, mimeType;
             
             if (format === 'markdown') {
                 content = data.document || data;
-                filename = exportType === 'project' 
-                    ? `${currentProject?.name || 'API'}_文档.md` 
-                    : `${currentApi?.name || 'API'}_文档.md`;
+                if (exportType === 'project') {
+                    if (exportMode === 'select') {
+                        filename = `${currentProject?.name || 'API'}_已选接口文档.md`;
+                    } else {
+                        filename = `${currentProject?.name || 'API'}_文档.md`;
+                    }
+                } else {
+                    filename = `${currentApi?.name || 'API'}_文档.md`;
+                }
                 mimeType = 'text/markdown';
             } else if (format === 'postman') {
                 content = JSON.stringify(data, null, 2);
-                filename = exportType === 'project'
-                    ? `${currentProject?.name || 'API'}_postman_collection.json`
-                    : `${currentApi?.name || 'API'}_postman_collection.json`;
+                if (exportType === 'project') {
+                    if (exportMode === 'select') {
+                        filename = `${currentProject?.name || 'API'}_已选接口_postman_collection.json`;
+                    } else {
+                        filename = `${currentProject?.name || 'API'}_postman_collection.json`;
+                    }
+                } else {
+                    filename = `${currentApi?.name || 'API'}_postman_collection.json`;
+                }
                 mimeType = 'application/json';
             } else {
                 content = JSON.stringify(data, null, 2);
-                filename = exportType === 'project'
-                    ? `${currentProject?.name || 'API'}_文档.json`
-                    : `${currentApi?.name || 'API'}_文档.json`;
+                if (exportType === 'project') {
+                    if (exportMode === 'select') {
+                        filename = `${currentProject?.name || 'API'}_已选接口文档.json`;
+                    } else {
+                        filename = `${currentProject?.name || 'API'}_文档.json`;
+                    }
+                } else {
+                    filename = `${currentApi?.name || 'API'}_文档.json`;
+                }
                 mimeType = 'application/json';
             }
             

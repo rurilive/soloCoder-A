@@ -289,23 +289,25 @@ class ApiDefinitionViewSet(viewsets.ModelViewSet):
     def batch_document(self, request):
         """
         批量生成API文档
-        GET /api/apis/batch_document/?project={project_id}&group={group_id}&doc_format=json|markdown|postman
+        GET /api/apis/batch_document/?project={project_id}&group={group_id}&api_ids=1,2,3&doc_format=json|markdown|postman
         
         参数:
-            project: 项目ID（可选，如果不提供则需要group）
-            group: 分组ID（可选，如果不提供则需要project）
+            project: 项目ID（可选，如果不提供则需要group或api_ids）
+            group: 分组ID（可选）
+            api_ids: API ID列表，逗号分隔（可选，如 "1,2,3"）
             doc_format: 文档格式（json, markdown, postman）
             base_url: 基础URL（可选，默认使用项目base_url）
         """
         project_id = request.query_params.get('project')
         group_id = request.query_params.get('group')
+        api_ids_param = request.query_params.get('api_ids')
         doc_format = request.query_params.get('doc_format', 'json').lower()
         base_url = request.query_params.get('base_url', '')
         
-        if not project_id and not group_id:
+        if not project_id and not group_id and not api_ids_param:
             return Response({
                 'success': False,
-                'error': '请提供 project 或 group 参数'
+                'error': '请提供 project、group 或 api_ids 参数'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         apis = ApiDefinition.objects.filter(is_active=True)
@@ -339,6 +341,25 @@ class ApiDefinitionViewSet(viewsets.ModelViewSet):
                     'success': False,
                     'error': f'分组不存在: {group_id}'
                 }, status=status.HTTP_404_NOT_FOUND)
+        
+        if api_ids_param:
+            try:
+                api_ids = [int(id.strip()) for id in api_ids_param.split(',') if id.strip()]
+                if api_ids:
+                    apis = apis.filter(id__in=api_ids)
+                    
+                    first_api = apis.first()
+                    if first_api and first_api.project:
+                        project = first_api.project
+                        if not project_id:
+                            project_name = project.name
+                        if not base_url:
+                            base_url = project.base_url or ''
+            except ValueError:
+                return Response({
+                    'success': False,
+                    'error': 'api_ids 参数格式错误，应为逗号分隔的数字列表'
+                }, status=status.HTTP_400_BAD_REQUEST)
         
         apis = apis.order_by('created_at')
         
