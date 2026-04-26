@@ -3,7 +3,7 @@ import sys
 import os
 from pathlib import Path
 
-PORT = 8765
+PORT = 1111
 
 def main():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'api_platform.settings')

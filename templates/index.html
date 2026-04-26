@@ -2194,16 +2194,28 @@
                         return null;
                     }
                     const apiIdsStr = Array.from(selectedExportApiIds).join(',');
-                    url = `/apis/batch_document/?api_ids=${apiIdsStr}&doc_format=${format}`;
+                    url = `/api/apis/batch_document/?api_ids=${apiIdsStr}&doc_format=${format}`;
                 } else {
-                    url = `/apis/batch_document/?project=${projectId}&doc_format=${format}`;
+                    url = `/api/apis/batch_document/?project=${projectId}&doc_format=${format}`;
                 }
             } else {
                 const apiId = document.getElementById('exportApiId').value;
-                url = `/apis/${apiId}/document/?doc_format=${format}`;
+                url = `/api/apis/${apiId}/document/?doc_format=${format}`;
             }
             
-            return await apiRequest(url);
+            try {
+                const response = await fetch(url, {
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching document:', error);
+                alert('获取文档数据失败：' + error.message);
+                return null;
+            }
         }
         
         async function previewDocument() {
@@ -2221,7 +2233,13 @@
             const preview = document.getElementById('exportPreview');
             
             if (format === 'markdown') {
-                preview.textContent = data.document || data;
+                if (data && data.document) {
+                    preview.textContent = data.document;
+                } else if (typeof data === 'string') {
+                    preview.textContent = data;
+                } else {
+                    preview.textContent = JSON.stringify(data, null, 2);
+                }
             } else {
                 preview.textContent = JSON.stringify(data, null, 2);
             }
@@ -2243,7 +2261,13 @@
             let content, filename, mimeType;
             
             if (format === 'markdown') {
-                content = data.document || data;
+                if (data && data.document) {
+                    content = data.document;
+                } else if (typeof data === 'string') {
+                    content = data;
+                } else {
+                    content = JSON.stringify(data, null, 2);
+                }
                 if (exportType === 'project') {
                     if (exportMode === 'select') {
                         filename = `${currentProject?.name || 'API'}_已选接口文档.md`;
