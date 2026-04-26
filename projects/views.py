@@ -180,3 +180,55 @@ class GlobalConfigViewSet(viewsets.ModelViewSet):
         config.is_active = not config.is_active
         config.save()
         return Response({'success': True, 'is_active': config.is_active})
+    
+    @action(detail=False, methods=['post'])
+    def batch_save(self, request):
+        project_id = request.data.get('project_id')
+        configs_data = request.data.get('configs', [])
+        
+        if not project_id:
+            return Response({'error': 'project_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        created = []
+        updated = []
+        errors = []
+        
+        for config_data in configs_data:
+            config_id = config_data.get('id')
+            
+            try:
+                if config_id:
+                    try:
+                        config = GlobalConfig.objects.get(id=config_id, project=project)
+                        for key, value in config_data.items():
+                            if key != 'id' and key != 'project':
+                                setattr(config, key, value)
+                        config.save()
+                        updated.append(config.id)
+                    except GlobalConfig.DoesNotExist:
+                        errors.append({'id': config_id, 'error': 'Config not found'})
+                else:
+                    config = GlobalConfig.objects.create(
+                        project=project,
+                        name=config_data.get('name', ''),
+                        type=config_data.get('type'),
+                        auth_type=config_data.get('auth_type', 'none'),
+                        config_data=config_data.get('config_data', {}),
+                        is_active=config_data.get('is_active', True),
+                        is_global=config_data.get('is_global', False)
+                    )
+                    created.append(config.id)
+            except Exception as e:
+                errors.append({'id': config_id, 'error': str(e)})
+        
+        return Response({
+            'success': True,
+            'created': created,
+            'updated': updated,
+            'errors': errors
+        })

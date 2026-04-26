@@ -1874,7 +1874,7 @@
         
         async function saveProjectConfig() {
             try {
-                const data = {
+                const projectData = {
                     name: document.getElementById('configProjectName').value,
                     base_url: document.getElementById('configBaseUrl').value,
                     status: document.getElementById('configStatus').value,
@@ -1886,10 +1886,7 @@
                     description: document.getElementById('configDesc').value
                 };
                 
-                await apiRequest(`/projects/${currentProject.id}/`, {
-                    method: 'PUT',
-                    body: JSON.stringify(data)
-                });
+                const globalConfigsBatch = [];
                 
                 const headerRows = document.querySelectorAll('#globalHeadersTableBody tr:not([data-new])');
                 for (const row of headerRows) {
@@ -1901,14 +1898,12 @@
                         const enabled = row.querySelector('.global-header-enabled')?.checked;
                         
                         if (key) {
-                            await apiRequest(`/global-configs/${id}/`, {
-                                method: 'PUT',
-                                body: JSON.stringify({
-                                    name: key,
-                                    type: 'header',
-                                    config_data: { key, value, description: desc },
-                                    is_active: enabled
-                                })
+                            globalConfigsBatch.push({
+                                id: parseInt(id),
+                                name: key,
+                                type: 'header',
+                                config_data: { key, value, description: desc },
+                                is_active: enabled
                             });
                         }
                     }
@@ -1922,16 +1917,12 @@
                     const enabled = row.querySelector('.global-header-enabled')?.checked;
                     
                     if (key) {
-                        await apiRequest('/global-configs/', {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                project: currentProject.id,
-                                name: key,
-                                type: 'header',
-                                config_data: { key, value, description: desc },
-                                is_active: enabled,
-                                is_global: true
-                            })
+                        globalConfigsBatch.push({
+                            name: key,
+                            type: 'header',
+                            config_data: { key, value, description: desc },
+                            is_active: enabled,
+                            is_global: true
                         });
                     }
                 }
@@ -1946,14 +1937,12 @@
                         const enabled = row.querySelector('.global-var-enabled')?.checked;
                         
                         if (key) {
-                            await apiRequest(`/global-configs/${id}/`, {
-                                method: 'PUT',
-                                body: JSON.stringify({
-                                    name: key,
-                                    type: 'variable',
-                                    config_data: { key, value, description: desc },
-                                    is_active: enabled
-                                })
+                            globalConfigsBatch.push({
+                                id: parseInt(id),
+                                name: key,
+                                type: 'variable',
+                                config_data: { key, value, description: desc },
+                                is_active: enabled
                             });
                         }
                     }
@@ -1967,16 +1956,12 @@
                     const enabled = row.querySelector('.global-var-enabled')?.checked;
                     
                     if (key) {
-                        await apiRequest('/global-configs/', {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                project: currentProject.id,
-                                name: key,
-                                type: 'variable',
-                                config_data: { key, value, description: desc },
-                                is_active: enabled,
-                                is_global: true
-                            })
+                        globalConfigsBatch.push({
+                            name: key,
+                            type: 'variable',
+                            config_data: { key, value, description: desc },
+                            is_active: enabled,
+                            is_global: true
                         });
                     }
                 }
@@ -2007,42 +1992,51 @@
                     
                     const existingAuth = currentGlobalConfigs.find(c => c.type === 'auth');
                     if (existingAuth) {
-                        await apiRequest(`/global-configs/${existingAuth.id}/`, {
-                            method: 'PUT',
-                            body: JSON.stringify({
-                                name: `${authType} 认证`,
-                                type: 'auth',
-                                auth_type: authType,
-                                config_data: configData,
-                                is_active: authActive,
-                                is_global: authGlobal
-                            })
+                        globalConfigsBatch.push({
+                            id: existingAuth.id,
+                            name: `${authType} 认证`,
+                            type: 'auth',
+                            auth_type: authType,
+                            config_data: configData,
+                            is_active: authActive,
+                            is_global: authGlobal
                         });
                     } else {
-                        await apiRequest('/global-configs/', {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                project: currentProject.id,
-                                name: `${authType} 认证`,
-                                type: 'auth',
-                                auth_type: authType,
-                                config_data: configData,
-                                is_active: authActive,
-                                is_global: authGlobal
-                            })
+                        globalConfigsBatch.push({
+                            name: `${authType} 认证`,
+                            type: 'auth',
+                            auth_type: authType,
+                            config_data: configData,
+                            is_active: authActive,
+                            is_global: authGlobal
                         });
                     }
                 } else {
                     const existingAuth = currentGlobalConfigs.find(c => c.type === 'auth');
                     if (existingAuth) {
-                        await apiRequest(`/global-configs/${existingAuth.id}/`, {
-                            method: 'PUT',
-                            body: JSON.stringify({
-                                is_active: false
-                            })
+                        globalConfigsBatch.push({
+                            id: existingAuth.id,
+                            is_active: false
                         });
                     }
                 }
+                
+                const batchResult = await apiRequest('/global-configs/batch_save/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        project_id: currentProject.id,
+                        configs: globalConfigsBatch
+                    })
+                });
+                
+                if (batchResult.errors && batchResult.errors.length > 0) {
+                    console.error('部分配置保存失败:', batchResult.errors);
+                }
+                
+                await apiRequest(`/projects/${currentProject.id}/`, {
+                    method: 'PUT',
+                    body: JSON.stringify(projectData)
+                });
                 
                 alert('保存成功');
                 closeModal('projectConfigModal');
