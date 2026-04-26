@@ -1898,15 +1898,13 @@
                         const desc = row.querySelector('.global-header-desc')?.value;
                         const enabled = row.querySelector('.global-header-enabled')?.checked;
                         
-                        if (key) {
-                            globalConfigsBatch.push({
-                                id: parseInt(id),
-                                name: key,
-                                type: 'header',
-                                config_data: { key, value, description: desc },
-                                is_active: enabled
-                            });
-                        }
+                        globalConfigsBatch.push({
+                            id: parseInt(id),
+                            name: key || '(空)',
+                            type: 'header',
+                            config_data: { key, value, description: desc },
+                            is_active: enabled
+                        });
                     }
                 }
                 
@@ -1937,15 +1935,13 @@
                         const desc = row.querySelector('.global-var-desc')?.value;
                         const enabled = row.querySelector('.global-var-enabled')?.checked;
                         
-                        if (key) {
-                            globalConfigsBatch.push({
-                                id: parseInt(id),
-                                name: key,
-                                type: 'variable',
-                                config_data: { key, value, description: desc },
-                                is_active: enabled
-                            });
-                        }
+                        globalConfigsBatch.push({
+                            id: parseInt(id),
+                            name: key || '(空)',
+                            type: 'variable',
+                            config_data: { key, value, description: desc },
+                            is_active: enabled
+                        });
                     }
                 }
                 

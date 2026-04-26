@@ -39,7 +39,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def global_configs(self, request, pk=None):
         project = self.get_object()
-        configs = GlobalConfig.objects.filter(project=project, is_active=True)
+        configs = GlobalConfig.objects.filter(project=project)
         serializer = GlobalConfigSerializer(configs, many=True)
         return Response(serializer.data)
     
