@@ -5,7 +5,10 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.generic import TemplateView
 from rest_framework.routers import DefaultRouter
-from projects.views import ProjectViewSet, ApiGroupViewSet, EnvironmentViewSet, GlobalConfigViewSet
+from projects.views import (
+    ProjectViewSet, ApiGroupViewSet, EnvironmentViewSet, 
+    GlobalConfigViewSet, home_view
+)
 from apis.views import ApiDefinitionViewSet, ApiTestHistoryViewSet
 from mock_server.views import MockConfigViewSet, MockLogViewSet, mock_server_handler
 from test_runner.views import (
@@ -32,5 +35,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     re_path(r'^mock/(?P<path>.*)$', mock_server_handler, name='mock-server'),
-    path('', TemplateView.as_view(template_name='index.html'), name='home'),
+    path('', home_view, name='home'),
 ]

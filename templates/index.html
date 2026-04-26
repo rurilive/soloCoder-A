@@ -651,6 +651,7 @@
         async function apiRequest(url, options = {}) {
             const defaultOptions = {
                 headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store',
             };
             const response = await fetch(API_BASE + url, { ...defaultOptions, ...options });
             const data = await response.json();
