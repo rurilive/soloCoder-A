@@ -654,6 +654,14 @@
             };
             const response = await fetch(API_BASE + url, { ...defaultOptions, ...options });
             const data = await response.json();
+            
+            if (!response.ok) {
+                const error = new Error(data.detail || data.error || `HTTP ${response.status}`);
+                error.status = response.status;
+                error.data = data;
+                throw error;
+            }
+            
             if (data && data.results !== undefined) {
                 return data.results;
             }
@@ -1865,179 +1873,184 @@
         }
         
         async function saveProjectConfig() {
-            const data = {
-                name: document.getElementById('configProjectName').value,
-                base_url: document.getElementById('configBaseUrl').value,
-                status: document.getElementById('configStatus').value,
-                visibility: document.getElementById('configVisibility').value,
-                icon_type: document.getElementById('configIconType').value,
-                icon_emoji: document.getElementById('configIconEmoji').value,
-                icon_color: document.getElementById('configIconColor').value,
-                background_color: document.getElementById('configBgColor').value,
-                description: document.getElementById('configDesc').value
-            };
-            
-            await apiRequest(`/projects/${currentProject.id}/`, {
-                method: 'PUT',
-                body: JSON.stringify(data)
-            });
-            
-            const headerRows = document.querySelectorAll('#globalHeadersTableBody tr:not([data-new])');
-            for (const row of headerRows) {
-                const id = row.querySelector('.global-header-enabled')?.dataset.id;
-                if (id) {
+            try {
+                const data = {
+                    name: document.getElementById('configProjectName').value,
+                    base_url: document.getElementById('configBaseUrl').value,
+                    status: document.getElementById('configStatus').value,
+                    visibility: document.getElementById('configVisibility').value,
+                    icon_type: document.getElementById('configIconType').value,
+                    icon_emoji: document.getElementById('configIconEmoji').value,
+                    icon_color: document.getElementById('configIconColor').value,
+                    background_color: document.getElementById('configBgColor').value,
+                    description: document.getElementById('configDesc').value
+                };
+                
+                await apiRequest(`/projects/${currentProject.id}/`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                
+                const headerRows = document.querySelectorAll('#globalHeadersTableBody tr:not([data-new])');
+                for (const row of headerRows) {
+                    const id = row.querySelector('.global-header-enabled')?.dataset.id;
+                    if (id) {
+                        const key = row.querySelector('.global-header-key')?.value;
+                        const value = row.querySelector('.global-header-value')?.value;
+                        const desc = row.querySelector('.global-header-desc')?.value;
+                        const enabled = row.querySelector('.global-header-enabled')?.checked;
+                        
+                        if (key) {
+                            await apiRequest(`/global-configs/${id}/`, {
+                                method: 'PUT',
+                                body: JSON.stringify({
+                                    name: key,
+                                    type: 'header',
+                                    config_data: { key, value, description: desc },
+                                    is_active: enabled
+                                })
+                            });
+                        }
+                    }
+                }
+                
+                const newHeaderRows = document.querySelectorAll('#globalHeadersTableBody tr[data-new]');
+                for (const row of newHeaderRows) {
                     const key = row.querySelector('.global-header-key')?.value;
                     const value = row.querySelector('.global-header-value')?.value;
                     const desc = row.querySelector('.global-header-desc')?.value;
                     const enabled = row.querySelector('.global-header-enabled')?.checked;
                     
                     if (key) {
-                        await apiRequest(`/global-configs/${id}/`, {
-                            method: 'PUT',
+                        await apiRequest('/global-configs/', {
+                            method: 'POST',
                             body: JSON.stringify({
+                                project: currentProject.id,
                                 name: key,
                                 type: 'header',
                                 config_data: { key, value, description: desc },
-                                is_active: enabled
+                                is_active: enabled,
+                                is_global: true
                             })
                         });
                     }
                 }
-            }
-            
-            const newHeaderRows = document.querySelectorAll('#globalHeadersTableBody tr[data-new]');
-            for (const row of newHeaderRows) {
-                const key = row.querySelector('.global-header-key')?.value;
-                const value = row.querySelector('.global-header-value')?.value;
-                const desc = row.querySelector('.global-header-desc')?.value;
-                const enabled = row.querySelector('.global-header-enabled')?.checked;
                 
-                if (key) {
-                    await apiRequest('/global-configs/', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            project: currentProject.id,
-                            name: key,
-                            type: 'header',
-                            config_data: { key, value, description: desc },
-                            is_active: enabled,
-                            is_global: true
-                        })
-                    });
+                const varRows = document.querySelectorAll('#globalVariablesTableBody tr:not([data-new])');
+                for (const row of varRows) {
+                    const id = row.querySelector('.global-var-enabled')?.dataset.id;
+                    if (id) {
+                        const key = row.querySelector('.global-var-key')?.value;
+                        const value = row.querySelector('.global-var-value')?.value;
+                        const desc = row.querySelector('.global-var-desc')?.value;
+                        const enabled = row.querySelector('.global-var-enabled')?.checked;
+                        
+                        if (key) {
+                            await apiRequest(`/global-configs/${id}/`, {
+                                method: 'PUT',
+                                body: JSON.stringify({
+                                    name: key,
+                                    type: 'variable',
+                                    config_data: { key, value, description: desc },
+                                    is_active: enabled
+                                })
+                            });
+                        }
+                    }
                 }
-            }
-            
-            const varRows = document.querySelectorAll('#globalVariablesTableBody tr:not([data-new])');
-            for (const row of varRows) {
-                const id = row.querySelector('.global-var-enabled')?.dataset.id;
-                if (id) {
+                
+                const newVarRows = document.querySelectorAll('#globalVariablesTableBody tr[data-new]');
+                for (const row of newVarRows) {
                     const key = row.querySelector('.global-var-key')?.value;
                     const value = row.querySelector('.global-var-value')?.value;
                     const desc = row.querySelector('.global-var-desc')?.value;
                     const enabled = row.querySelector('.global-var-enabled')?.checked;
                     
                     if (key) {
-                        await apiRequest(`/global-configs/${id}/`, {
-                            method: 'PUT',
+                        await apiRequest('/global-configs/', {
+                            method: 'POST',
                             body: JSON.stringify({
+                                project: currentProject.id,
                                 name: key,
                                 type: 'variable',
                                 config_data: { key, value, description: desc },
-                                is_active: enabled
+                                is_active: enabled,
+                                is_global: true
                             })
                         });
                     }
                 }
-            }
-            
-            const newVarRows = document.querySelectorAll('#globalVariablesTableBody tr[data-new]');
-            for (const row of newVarRows) {
-                const key = row.querySelector('.global-var-key')?.value;
-                const value = row.querySelector('.global-var-value')?.value;
-                const desc = row.querySelector('.global-var-desc')?.value;
-                const enabled = row.querySelector('.global-var-enabled')?.checked;
                 
-                if (key) {
-                    await apiRequest('/global-configs/', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            project: currentProject.id,
-                            name: key,
-                            type: 'variable',
-                            config_data: { key, value, description: desc },
-                            is_active: enabled,
-                            is_global: true
-                        })
-                    });
-                }
-            }
-            
-            const authType = document.getElementById('configAuthType').value;
-            const authActive = document.getElementById('configAuthActive').checked;
-            const authGlobal = document.getElementById('configAuthGlobal').checked;
-            
-            if (authType !== 'none') {
-                let configData = {};
-                if (authType === 'bearer') {
-                    configData = {
-                        token: document.getElementById('authToken')?.value || '',
-                        prefix: document.getElementById('authPrefix')?.value || 'Bearer',
-                        header_name: document.getElementById('authHeaderName')?.value || 'Authorization'
-                    };
-                } else if (authType === 'basic') {
-                    configData = {
-                        username: document.getElementById('authUsername')?.value || '',
-                        password: document.getElementById('authPassword')?.value || ''
-                    };
-                } else if (authType === 'apikey') {
-                    configData = {
-                        header_name: document.getElementById('apiKeyHeaderName')?.value || 'X-API-Key',
-                        api_key: document.getElementById('apiKeyValue')?.value || ''
-                    };
-                }
+                const authType = document.getElementById('configAuthType').value;
+                const authActive = document.getElementById('configAuthActive').checked;
+                const authGlobal = document.getElementById('configAuthGlobal').checked;
                 
-                const existingAuth = currentGlobalConfigs.find(c => c.type === 'auth');
-                if (existingAuth) {
-                    await apiRequest(`/global-configs/${existingAuth.id}/`, {
-                        method: 'PUT',
-                        body: JSON.stringify({
-                            name: `${authType} 认证`,
-                            type: 'auth',
-                            auth_type: authType,
-                            config_data: configData,
-                            is_active: authActive,
-                            is_global: authGlobal
-                        })
-                    });
+                if (authType !== 'none') {
+                    let configData = {};
+                    if (authType === 'bearer') {
+                        configData = {
+                            token: document.getElementById('authToken')?.value || '',
+                            prefix: document.getElementById('authPrefix')?.value || 'Bearer',
+                            header_name: document.getElementById('authHeaderName')?.value || 'Authorization'
+                        };
+                    } else if (authType === 'basic') {
+                        configData = {
+                            username: document.getElementById('authUsername')?.value || '',
+                            password: document.getElementById('authPassword')?.value || ''
+                        };
+                    } else if (authType === 'apikey') {
+                        configData = {
+                            header_name: document.getElementById('apiKeyHeaderName')?.value || 'X-API-Key',
+                            api_key: document.getElementById('apiKeyValue')?.value || ''
+                        };
+                    }
+                    
+                    const existingAuth = currentGlobalConfigs.find(c => c.type === 'auth');
+                    if (existingAuth) {
+                        await apiRequest(`/global-configs/${existingAuth.id}/`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                                name: `${authType} 认证`,
+                                type: 'auth',
+                                auth_type: authType,
+                                config_data: configData,
+                                is_active: authActive,
+                                is_global: authGlobal
+                            })
+                        });
+                    } else {
+                        await apiRequest('/global-configs/', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                project: currentProject.id,
+                                name: `${authType} 认证`,
+                                type: 'auth',
+                                auth_type: authType,
+                                config_data: configData,
+                                is_active: authActive,
+                                is_global: authGlobal
+                            })
+                        });
+                    }
                 } else {
-                    await apiRequest('/global-configs/', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            project: currentProject.id,
-                            name: `${authType} 认证`,
-                            type: 'auth',
-                            auth_type: authType,
-                            config_data: configData,
-                            is_active: authActive,
-                            is_global: authGlobal
-                        })
-                    });
+                    const existingAuth = currentGlobalConfigs.find(c => c.type === 'auth');
+                    if (existingAuth) {
+                        await apiRequest(`/global-configs/${existingAuth.id}/`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                                is_active: false
+                            })
+                        });
+                    }
                 }
-            } else {
-                const existingAuth = currentGlobalConfigs.find(c => c.type === 'auth');
-                if (existingAuth) {
-                    await apiRequest(`/global-configs/${existingAuth.id}/`, {
-                        method: 'PUT',
-                        body: JSON.stringify({
-                            is_active: false
-                        })
-                    });
-                }
+                
+                alert('保存成功');
+                closeModal('projectConfigModal');
+                await loadProject(currentProject.id);
+            } catch (error) {
+                console.error('保存配置失败:', error);
+                alert('保存失败: ' + (error.message || '未知错误'));
             }
-            
-            alert('保存成功');
-            closeModal('projectConfigModal');
-            await loadProject(currentProject.id);
         }
         
         function updateIconPreview() {

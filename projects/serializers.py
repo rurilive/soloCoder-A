@@ -40,7 +40,7 @@ class GlobalConfigSerializer(serializers.ModelSerializer):
         fields = ['id', 'project', 'name', 'type', 'type_display', 'auth_type', 
                   'auth_type_display', 'config_data', 'is_active', 'is_global', 
                   'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'project']
 
 
 class ProjectSerializer(serializers.ModelSerializer):

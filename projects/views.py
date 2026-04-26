@@ -140,6 +140,13 @@ class GlobalConfigViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(type=config_type)
         return queryset
     
+    def perform_create(self, serializer):
+        project_id = self.request.data.get('project')
+        if project_id:
+            serializer.save(project_id=project_id)
+        else:
+            serializer.save()
+    
     @action(detail=False, methods=['get'])
     def headers(self, request):
         project_id = request.query_params.get('project')
